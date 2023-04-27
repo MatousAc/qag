@@ -1,2 +1,6 @@
 *.zip
 pbe_aqg_potsawee_t5/
+environment.yml
+env.yml
+onnxModel/onnx_*
+*/shared.weight

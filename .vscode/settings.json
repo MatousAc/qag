@@ -5,6 +5,7 @@
     "fmeasure",
     "nkjv",
     "nltk",
+    "onnx",
     "potsawee",
     "preds",
     "Preprocess",
