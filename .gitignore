@@ -6,3 +6,4 @@ onnxModel/onnx_*
 */shared.weight
 onnx*/*
 *ONNX/*
+*.bin
