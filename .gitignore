@@ -5,5 +5,5 @@ env.yml
 onnxModel/onnx_*
 */shared.weight
 onnx*/*
-*ONNX/*
+onnx/
 *.bin
