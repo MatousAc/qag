@@ -14,3 +14,4 @@ vite.config.ts.timestamp-*
 *.log
 *.h5
 *.onnx
+!src/assets/testModel.onnx
