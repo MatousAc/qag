@@ -23,6 +23,7 @@ async function generateQuestion() {
   const dataB = Float32Array.from([
     10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120
   ])
+  console.log("dataA: ", dataA)
   const tensorA = new ort.Tensor('float32', dataA, [3, 4])
   const tensorB = new ort.Tensor('float32', dataB, [4, 3])
 
