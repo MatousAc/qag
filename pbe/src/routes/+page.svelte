@@ -6,56 +6,43 @@ import Input from '$comp/Input.svelte'
 import TextMedia from '$comp/TextMedia.svelte'
 import Button from '$comp/Button.svelte'
 import Row from '$/components/Row.svelte'
-import * as ort from 'onnxruntime-web'
-import jsTokens from "js-tokens"
+import { AutoTokenizer, T5ForConditionalGeneration } from 'web-transformers'
 
-let tokenMap: Record<string, number> = {}
-onMount(() => {
-  fetch('/OptimumONNX/tokenMap.json')
-  .then(response => response.json())
-  .then(tm => tokenMap = tm)
-  .catch(error => console.error(error));
+
+let tokenizer: AutoTokenizer
+let model: T5ForConditionalGeneration
+
+const generateProgress = async (outputTokenIds: number[], forInputIds: number[]) => {
+  let shouldContinue = true
+  return shouldContinue
+}
+const generationOptions = {
+  "maxLength": 512,
+  "topK": 0
+}
+
+// load the tokenizer and model
+const loadModel = async (modelID: string, modelPath:string) => {
+  tokenizer = AutoTokenizer.fromPretrained(modelID, modelPath)
+  model = new T5ForConditionalGeneration(modelID, modelPath, async progress => {
+    console.log(`Loading network: ${Math.round(progress * 100)}%`)
+  })
+  let gen: string = "In the beginning, God created the heavens and the earth."
+  model.generate(await tokenizer.encode(gen), generationOptions, generateProgress)
+}
+
+const generateQuestion = async () => {
+  let verse: string = "In the beginning, God created the heavens and the earth."
+  const inputTokenIds = await tokenizer.encode(verse)
+
+  const finalOutputTokenIds = await model.generate(inputTokenIds, generationOptions, generateProgress)
+  const finalOutput = (await tokenizer.decode(finalOutputTokenIds, true)).trim()
+  console.log(finalOutput)
+}
+
+onMount(async () => {
+  loadModel("potsawee/t5-large-generation-squad-QuestionAnswer", "/fastT5/")
 })
-
-let getFeed = (text: string) => {
-  let inputArr: Float32Array = new Float32Array(512)
-  let attentionArr: Float32Array = new Float32Array(512)
-  
-  let i = 0;
-  for (const token of jsTokens(text)) {
-    // ignore some tokens
-    switch(token.type) {
-      case "WhiteSpace": continue;
-    }
-
-    i++
-    if (token.value in tokenMap) {
-      inputArr[i] = tokenMap[token.value]
-      attentionArr[i] = 1 // mark as valuable
-    } else {
-      inputArr[i] = tokenMap["<unk>"]
-    }
-  }
-
-  const inputTensor = new ort.Tensor('float32', inputArr)
-  const attentionTensor = new ort.Tensor('float32', attentionArr)
-  
-  return { input_ids: inputTensor, attention_mask: attentionTensor }
-}
-
-let generateQuestion = async () => {
-  let verse = "In the beginning, God created the heavens and the earth."
-  let feed = getFeed(verse)
-  console.log(feed)
-
-  // create a new session and load the specific model.
-  const session = await ort.InferenceSession.create('/OptimumONNX/encoder_model.onnx')
-  const results = await session.run(feed)
-
-  // read from results
-  const dataC = results.c.data
-  console.log(`data of result tensor 'c': ${dataC}`)
-}
 </script>
 
 <svelte:head>
