@@ -29,9 +29,8 @@ export const loadModel = async (modelID: string, modelPath: string) => {
   )
 }
 
-export const generateQuestion = async () => {
-  let verse: string = 'In the beginning, God created the heavens and the earth.'
-  const inputTokenIds = await tokenizer.encode(verse)
+export const generateQuestion = async (text: string) => {
+  const inputTokenIds = await tokenizer.encode(text)
 
   const finalOutputTokenIds = await model.generate(
     inputTokenIds,
@@ -40,4 +39,5 @@ export const generateQuestion = async () => {
   )
   const finalOutput = (await tokenizer.decode(finalOutputTokenIds, true)).trim()
   console.log(finalOutput)
+  return finalOutput
 }
