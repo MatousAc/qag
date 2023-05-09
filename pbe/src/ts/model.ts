@@ -34,7 +34,9 @@ export const generateQuestion = async (text: string) => {
     generationOptions,
     generateProgress
   )
-  const finalOutput = (await tokenizer.decode(finalOutputTokenIds, true)).trim()
+  const finalOutput = (
+    await tokenizer.decode(finalOutputTokenIds, false)
+  ).trim()
   console.log(finalOutput)
   return finalOutput
 }
