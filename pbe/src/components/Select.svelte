@@ -5,6 +5,7 @@ import Row from '$comp/Row.svelte'
 export let name: string
 export let label: string = ''
 export let value = ''
+export let justify: string = 'space-between'
 export let options: { name: string; value: string }[] = []
 export let selectFirst = true
 let def: { name: string; value: string } = { name: '', value: '' }
@@ -17,7 +18,7 @@ onMount(() => {
 })
 </script>
 
-<Row justify='space-between' class='mr-4'>
+<Row {justify} class='mr-4'>
   <label for={name} class='mr-2 {name ? '' : 'hidden'}'>
     {label}
   </label>

@@ -64,14 +64,15 @@ const truncateText = (text: string) => {
   <div slot='text'>
     <H2>Select a text to generate questions on.</H2>
     {#await lazyNKJV() then}
-    <Row justify='start'>
-      <Select bind:value={book} name='book' options={getBooks()} on:change={() => {
+    <Row justify='flex-start' align='left' class='lg:flex-col'>
+      <Select justify="flex-start" bind:value={book} name='book' options={getBooks()} on:change={() => {
         chapters = getChapters(book)
         chapter = '1'
         updateText()
       }} />
-      <Select bind:value={chapter} name='chapter' options={chapters} on:change={() => {
-        verses = getVerses(book, chapter)
+      <Row>
+        <Select bind:value={chapter} name='chapter' options={chapters} on:change={() => {
+          verses = getVerses(book, chapter)
         startVerse = '1'
         endVerse = '1'
         updateText()
@@ -90,6 +91,7 @@ const truncateText = (text: string) => {
         }
         updateText()
       }}/>
+      </Row>
     </Row>
     <P>
       {truncateText(text)}
