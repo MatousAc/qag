@@ -24,12 +24,6 @@ export const loadModel = async (modelID: string, modelPath: string) => {
     console.log(`Loading network: ${Math.round(progress * 100)}%`)
     loadProgress.set(`${Math.round(progress * 100)}%`)
   })
-  let gen: string = 'In the beginning, God created the heavens and the earth.'
-  model.generate(
-    await tokenizer.encode(gen),
-    generationOptions,
-    generateProgress
-  )
 }
 
 export const generateQuestion = async (text: string) => {

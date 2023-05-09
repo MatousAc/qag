@@ -28,11 +28,16 @@ const updateText = () => {
   )
 }
 
-const lazyLoading = async () => {
+const lazyNKJV = async () => {
   await loadNKJV()
   chapters = getChapters(book)
   verses = getVerses(book, chapter)
   updateText()
+}
+
+const lazyModel = async () => {
+  await loadModel(modelID, modelURL)
+  outputArea.innerHTML = await generateQuestion(text)
 }
 
 const truncateText = (text: string) => {
@@ -58,7 +63,7 @@ const truncateText = (text: string) => {
 <TextMedia>
   <div slot='text'>
     <H2>Select a text to generate questions on.</H2>
-    {#await lazyLoading() then}
+    {#await lazyNKJV() then}
     <Row justify='start'>
       <Select bind:value={book} name='book' options={getBooks()} on:change={() => {
         chapters = getChapters(book)
@@ -91,7 +96,7 @@ const truncateText = (text: string) => {
     </P>
     {/await}
     <Row justify='between'>
-    {#await loadModel(modelID, modelURL)}
+    {#await lazyModel()}
       <Button disabled class='mr-auto'>
         Loading Model: {progress}
       </Button>
