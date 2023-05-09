@@ -1,16 +1,18 @@
-import data from '$/ts/nkjv.json'
-
-export const nkjvData: {
+export let nkjvData: {
   [book: string]: {
     [chapter: string]: {
       [verse: string]: string
     }
   }
-} = data as {
-  [book: string]: {
-    [chapter: string]: {
-      [verse: string]: string
-    }
+}
+
+export const loadNKJV = async () => {
+  try {
+    const response = await fetch('http://localhost:5173/nkjv.json')
+    nkjvData = await response.json()
+    // Process the loaded data
+  } catch (error) {
+    console.log('Error fetching nkjv.json:', error)
   }
 }
 
@@ -21,6 +23,7 @@ interface KeyVal {
 
 // Get the list of books
 export const getBooks = (): KeyVal[] => {
+  if (nkjvData === undefined) return []
   return Object.keys(nkjvData).map(bookName => ({
     name: bookName,
     value: bookName
@@ -29,6 +32,7 @@ export const getBooks = (): KeyVal[] => {
 
 // get the number of chapters in a book
 export const getChapters = (book: string): KeyVal[] => {
+  if (nkjvData === undefined) return []
   const bookData = nkjvData[book]
   if (bookData) {
     return Object.keys(bookData).map(chapterName => ({
@@ -41,6 +45,7 @@ export const getChapters = (book: string): KeyVal[] => {
 
 // get the number of verses in a chapter of a book
 export const getVerses = (book: string, chapter: string): KeyVal[] => {
+  if (nkjvData === undefined) return []
   const bookData = nkjvData[book]
   if (bookData) {
     const chapterData = bookData[chapter]

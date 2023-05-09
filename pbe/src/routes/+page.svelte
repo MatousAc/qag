@@ -7,7 +7,7 @@ import TextMedia from '$comp/TextMedia.svelte'
 import Button from '$comp/Button.svelte'
 import Row from '$/components/Row.svelte'
 import { loadModel, generateQuestion } from '$/ts/model'
-import { getBooks, getChapters, getVerses, getText } from '$/ts/nkjv'
+import { loadNKJV, getBooks, getChapters, getVerses, getText } from '$/ts/nkjv'
 
 let modelID = 'potsawee/t5-large-generation-squad-QuestionAnswer'
 let modelURL = 'https://storage.googleapis.com/aqg_onnx'
@@ -24,9 +24,10 @@ const updateText = () => {
 }
 
 onMount(async () => {
+  loadNKJV()
   loadModel(modelID, modelURL)
-  text = getText("Genesis", 1, 1, 1, 1)
-  console.log(text)
+  // text = getText("Genesis", 1, 1, 1, 1)
+  // console.log(text)
 })
 
 const truncateText = (text: string) => {

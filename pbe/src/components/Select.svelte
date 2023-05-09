@@ -12,7 +12,7 @@ let select: HTMLSelectElement
 
 onMount(() => {
   if (selectFirst) {
-    select.value = options[0].value
+    select.value = options[0]?.value
   }
 })
 </script>
