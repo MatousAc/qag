@@ -1,7 +1,9 @@
+import { writable } from 'svelte/store'
 import { AutoTokenizer, T5ForConditionalGeneration } from 'web-transformers'
 
 let tokenizer: AutoTokenizer
 let model: T5ForConditionalGeneration
+export let loadProgress = writable('0%')
 
 const generateProgress = async (
   outputTokenIds: number[],
@@ -20,6 +22,7 @@ export const loadModel = async (modelID: string, modelPath: string) => {
   tokenizer = AutoTokenizer.fromPretrained(modelID, modelPath)
   model = new T5ForConditionalGeneration(modelID, modelPath, async progress => {
     console.log(`Loading network: ${Math.round(progress * 100)}%`)
+    loadProgress.set(`${Math.round(progress * 100)}%`)
   })
   let gen: string = 'In the beginning, God created the heavens and the earth.'
   model.generate(
