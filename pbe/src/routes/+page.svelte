@@ -108,6 +108,12 @@ const truncateText = (text: string) => {
         }} class='mr-auto'>
         Generate Question
       </Button>
+    {:catch error}
+      <Button onClick={async () => {
+          outputArea.innerHTML = await generateQuestion(text)
+        }} class='mr-auto'>
+        Generate Question
+      </Button>
     {/await}
     </Row>
   </div>

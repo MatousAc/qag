@@ -27,15 +27,18 @@ export const loadModel = async (modelID: string, modelPath: string) => {
 }
 
 const processQA = (inputString: string) => {
-  const re = /\[.*?\]/g
-  let str = inputString.replace(re, '') // remove square brackets and their contents
-  str = str.replace(/<.*?>/g, '')
-  const parts = str.split('<s/>') // split string on '<s/>'
+  const parts = inputString.split('[32100]') // split string on separator
+  console.log(inputString)
+  console.log(parts)
   if (parts.length < 2) {
     return ''
   }
-  const question = parts[0].trim()
-  const answer = parts[1].trim()
+  const [question, answer] = parts.map(part =>
+    part
+      .replace(/<.*?>/g, '') // Remove angle brackets
+      .replace(/\[.*?\]/g, '') // Remove square brackets
+      .trim()
+  )
 
   return `Question: ${question}\nAnswer: ${answer}`
 }
