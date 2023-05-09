@@ -9,6 +9,8 @@ import Row from '$/components/Row.svelte'
 import { loadModel, generateQuestion } from '$/ts/model'
 import { getBooks, getChapters, getVerses, getText } from '$/ts/nkjv'
 
+let modelID = 'potsawee/t5-large-generation-squad-QuestionAnswer'
+let modelURL = 'https://storage.googleapis.com/aqg_onnx'
 let {book, chapter, startVerse, endVerse, text, result} = {
   book: 'Genesis', chapter: '1', startVerse: '1', endVerse: '1', text: '', result: ''
 }
@@ -22,7 +24,7 @@ const updateText = () => {
 }
 
 onMount(async () => {
-  loadModel('potsawee/t5-large-generation-squad-QuestionAnswer', 'https://storage.googleapis.com/aqg_onnx_models')
+  loadModel(modelID, modelURL)
   text = getText("Genesis", 1, 1, 1, 1)
   console.log(text)
 })
