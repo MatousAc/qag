@@ -14,8 +14,9 @@ let modelURL = 'https://storage.googleapis.com/aqg_onnx'
 let {book, chapter, startVerse, endVerse, text, result} = {
   book: 'Genesis', chapter: '1', startVerse: '1', endVerse: '1', text: '', result: ''
 }
-let chapters: { name: string; value: string }[] = getChapters(book)
-let verses: { name: string; value: string }[] = getVerses(book, chapter)
+
+let chapters: { name: string; value: string }[] = []
+let verses: { name: string; value: string }[] = []
 
 const updateText = () => {
   text = getText(book, parseInt(chapter), parseInt(startVerse), 
@@ -23,8 +24,14 @@ const updateText = () => {
   )
 }
 
+const lazyLoading = async () => {
+  await loadNKJV()
+  chapters = getChapters(book)
+  verses = getVerses(book, chapter)
+  updateText()
+}
+
 onMount(async () => {
-  loadNKJV()
   loadModel(modelID, modelURL)
   // text = getText("Genesis", 1, 1, 1, 1)
   // console.log(text)
@@ -54,6 +61,7 @@ const truncateText = (text: string) => {
 <TextMedia>
   <div slot='text'>
     <H2>Select a text to generate questions on.</H2>
+    {#await lazyLoading() then}
     <Row justify='start'>
       <Select bind:value={book} name='book' options={getBooks()} on:change={() => {
         chapters = getChapters(book)
@@ -84,6 +92,7 @@ const truncateText = (text: string) => {
     <P>
       {truncateText(text)}
     </P>
+    {/await}
     <Row justify='between'>
       <Button onClick={() => generateQuestion(text)} class='mr-auto'>
         Generate Question
