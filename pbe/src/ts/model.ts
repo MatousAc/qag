@@ -14,7 +14,7 @@ const generateProgress = async (
 }
 const generationOptions = {
   maxLength: 512,
-  topK: 0
+  topK: 10
 }
 
 // load the tokenizer and model
