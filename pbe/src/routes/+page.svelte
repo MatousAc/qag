@@ -70,7 +70,7 @@ const truncateText = (text: string) => {
         chapter = '1'
         updateText()
       }} />
-      <Row>
+      <Row justify='flex-start'>
         <Select bind:value={chapter} name='chapter' options={chapters} on:change={() => {
           verses = getVerses(book, chapter)
         startVerse = '1'

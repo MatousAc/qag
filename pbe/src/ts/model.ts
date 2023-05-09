@@ -26,6 +26,20 @@ export const loadModel = async (modelID: string, modelPath: string) => {
   })
 }
 
+const processQA = (inputString: string) => {
+  const re = /\[.*?\]/g
+  let str = inputString.replace(re, '') // remove square brackets and their contents
+  str = str.replace(/<.*?>/g, '')
+  const parts = str.split('<s/>') // split string on '<s/>'
+  if (parts.length < 2) {
+    return ''
+  }
+  const question = parts[0].trim()
+  const answer = parts[1].trim()
+
+  return `Question: ${question}\nAnswer: ${answer}`
+}
+
 export const generateQuestion = async (text: string) => {
   const inputTokenIds = await tokenizer.encode(text)
 
@@ -34,9 +48,8 @@ export const generateQuestion = async (text: string) => {
     generationOptions,
     generateProgress
   )
-  const finalOutput = (
-    await tokenizer.decode(finalOutputTokenIds, false)
-  ).trim()
+  let finalOutput = (await tokenizer.decode(finalOutputTokenIds, false)).trim()
+  finalOutput = processQA(finalOutput)
   console.log(finalOutput)
   return finalOutput
 }
