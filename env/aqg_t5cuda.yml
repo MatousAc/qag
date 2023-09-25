@@ -1,4 +1,4 @@
-name: PBE_AQG
+name: aqg_t5
 channels:
   - conda-forge
   - defaults
@@ -157,4 +157,4 @@ dependencies:
       - wrapt==1.14.1
       - xxhash==3.2.0
       - yarl==1.9.2
-prefix: /home/ac/miniconda3/envs/PBE_AQG
+prefix: /home/ac/miniconda3/envs/aqg_t5
