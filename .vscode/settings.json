@@ -1,13 +1,20 @@
 {
   "cSpell.words": [
     "allenai",
+    "argmax",
+    "chardet",
     "dataframe",
     "fmeasure",
     "nkjv",
     "nltk",
+    "onnx",
     "potsawee",
     "preds",
     "Preprocess",
     "pretrained"
-  ]
+  ],
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.autopep8"
+  },
+  "python.formatting.provider": "none"
 }
