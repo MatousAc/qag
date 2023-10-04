@@ -1,0 +1,1 @@
+{"dataset_path": "lmqg/qg_squad", "dataset_name": "default", "input_types": "paragraph_answer", "output_types": "question", "model": "meta-llama/Llama-2-7b-hf", "fp16": false, "batch": 64, "epoch": 15, "max_length": 512, "max_length_output": 32, "prefix_types": "qg"}
