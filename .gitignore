@@ -16,3 +16,5 @@ build*
 dist
 models*
 models/
+baseModels/
+*/wandb/
