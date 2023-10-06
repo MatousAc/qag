@@ -2,20 +2,23 @@ from datasets import load_dataset
 import configparser
 
 class DataProcessor():
-  def __init__(self, configFilePath = 'QAG.ini'):
+  def __init__(self, configFilePath = 'qag.ini'):
     config = configparser.ConfigParser()
     config.read(configFilePath)
-    self.config = config['data']
+    self.paths = config['paths']
+    self.config = config['dataProcessor']
+    self.quiet = bool(self.config['quiet'])
     self.load()
   
-  def load(self, quiet = False):
-    data = load_dataset('lmqg/qg_squad')
-    if not quiet: print(data)
+  def load(self):
+    print('##### Loading Data #####')
+    data = load_dataset(self.paths['data'])
+    if not self.quiet: print(data)
 
     self.train_dataset = data['train']
     self.eval_dataset = data['validation']
 
-    if not quiet: print(self.train_dataset[0])
+    if not self.quiet: print(self.train_dataset[0])
 
 
   # define data processing functions that produce the actual untokenized input for various training phases
@@ -31,3 +34,6 @@ class DataProcessor():
       text = self.contextAnswer(examples, i)
       output_texts.append(text)
     return output_texts
+
+  # def sampleDataFx(self, dataFx):
+  #   return dataFx([self.train_dataset[0]])

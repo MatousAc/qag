@@ -1,9 +1,4 @@
-# import libraries
-
-# try to run this without using huggingface_hub
-# from huggingface_hub import notebook_login
-# notebook_login()
-
+# import libraries we need
 import configparser
 import torch
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, TrainingArguments 
@@ -12,18 +7,21 @@ from trl import SFTTrainer
 from dataProcessor import DataProcessor
 
 class QAGTrainer:
-  def __init__(self, configFilePath = 'QAG.ini'):
+  def __init__(self, configFilePath = 'qag.ini'):
     config = configparser.ConfigParser()
     config.read(configFilePath)
     self.paths = config['paths']
     self.peft = config['peft']
-    self.trCfg = config['train']
+    self.trainArgs = config['trainArgs']
+    self.config = config['qagTrainer']
+    if bool(self.config['ignoreWarnings']): self.warningIgnore()
     self.setUpConfig()
+  
 
   def loadModel(self):
     # load our model
     self.base_model = AutoModelForCausalLM.from_pretrained(
-      base_model_dir=self.paths['base'],
+      pretrained_model_name_or_path=self.paths['base'],
       quantization_config=self.bnb_config,
       device_map='auto',
       # research what this is and why i need/don't need it
@@ -40,14 +38,15 @@ class QAGTrainer:
     self.tokenizer.pad_token = self.tokenizer.eos_token
 
     # add custom tokens here
-    new_tokens = ['<hl>']
-    vocabulary = self.tokenizer.get_vocab().keys()
-    for token in new_tokens:
+    if bool(self.config['addCustomTokens']):
+      new_tokens = ['<hl>']
+      vocabulary = self.tokenizer.get_vocab().keys()
+      for token in new_tokens:
         # check to see if new token is in the vocabulary or not
         if token not in vocabulary:
-            self.tokenizer.add_tokens(token)
+          self.tokenizer.add_tokens(token)
 
-    self.base_model.resize_token_embeddings(len(self.tokenizer))
+      self.base_model.resize_token_embeddings(len(self.tokenizer))
 
   def train(self, dataProcessor: DataProcessor):
     # use the SFTTrainer from HuggingFace's trl
@@ -57,7 +56,7 @@ class QAGTrainer:
         eval_dataset=dataProcessor.eval_dataset,
         peft_config=self.peft_config,
         formatting_func=dataProcessor.processData,
-        max_seq_length=int(self.trCfg['maxSeqLength']),
+        max_seq_length=int(self.trainArgs['maxSeqLength']),
         tokenizer=self.tokenizer,
         args=self.training_args,
       )
@@ -78,17 +77,17 @@ class QAGTrainer:
     
     self.training_args = TrainingArguments(
       output_dir=self.paths['output'],
-      per_device_train_batch_size = int(self.trCfg['perDeviceTrainBatchSize']),
-      gradient_accumulation_steps = int(self.trCfg['gradientAccumulationSteps']),
-      learning_rate = float(self.trCfg['learningRate']),
-      logging_steps = int(self.trCfg['loggingSteps']),
-      max_steps = int(self.trCfg['maxSteps']),
+      per_device_train_batch_size = int(self.trainArgs['perDeviceTrainBatchSize']),
+      gradient_accumulation_steps = int(self.trainArgs['gradientAccumulationSteps']),
+      learning_rate = float(self.trainArgs['learningRate']),
+      logging_steps = int(self.trainArgs['loggingSteps']),
+      max_steps = int(self.trainArgs['maxSteps']),
       logging_dir = self.paths['log'],
-      save_strategy = self.trCfg['saveStrategy'],
-      save_steps = int(self.trCfg['saveSteps']),
-      evaluation_strategy = self.trCfg['evaluationStrategy'],
-      eval_steps = int(self.trCfg['evalSteps']),
-      do_eval = bool(self.trCfg['doEval'])
+      save_strategy = self.trainArgs['saveStrategy'],
+      save_steps = int(self.trainArgs['saveSteps']),
+      evaluation_strategy = self.trainArgs['evaluationStrategy'],
+      eval_steps = int(self.trainArgs['evalSteps']),
+      do_eval = bool(self.trainArgs['doEval'])
     )
 
     self.peft_config = LoraConfig(
@@ -98,7 +97,13 @@ class QAGTrainer:
       bias = self.peft['bias'],
       task_type = self.peft['taskType']
     )
- 
+
+  def warningIgnore(self):
+    import warnings # i import here and hide this
+    warnings.filterwarnings('ignore', category = DeprecationWarning)
+    warnings.filterwarnings('ignore', category = FutureWarning)
+
+
 if __name__ == '__main__':
   qagt = QAGTrainer()
   qagt.loadModel()
