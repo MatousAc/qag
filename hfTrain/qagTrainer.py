@@ -23,10 +23,7 @@ class QAGTrainer:
     self.base_model = AutoModelForCausalLM.from_pretrained(
       pretrained_model_name_or_path=self.paths['base'],
       quantization_config=self.bnb_config,
-      device_map='auto',
-      # research what this is and why i need/don't need it
-      # trust_remote_code=True,
-      # use_auth_token=True
+      device_map='auto'
     )
     self.base_model.config.use_cache = False
 
@@ -38,15 +35,17 @@ class QAGTrainer:
     self.tokenizer.pad_token = self.tokenizer.eos_token
 
     # add custom tokens here
-    if bool(self.config['addCustomTokens']):
-      new_tokens = ['<hl>']
-      vocabulary = self.tokenizer.get_vocab().keys()
-      for token in new_tokens:
-        # check to see if new token is in the vocabulary or not
-        if token not in vocabulary:
-          self.tokenizer.add_tokens(token)
+    if bool(self.config['addCustomTokens']): self.addCustomTokens()
+  
+  def addCustomTokens(self):
+    new_tokens = ['<hl>']
+    vocabulary = self.tokenizer.get_vocab().keys()
+    for token in new_tokens:
+      # check to see if new token is in the vocabulary or not
+      if token not in vocabulary:
+        self.tokenizer.add_tokens(token)
 
-      self.base_model.resize_token_embeddings(len(self.tokenizer))
+    self.base_model.resize_token_embeddings(len(self.tokenizer))
 
   def train(self, dataProcessor: DataProcessor):
     # use the SFTTrainer from HuggingFace's trl
@@ -59,15 +58,16 @@ class QAGTrainer:
         max_seq_length=int(self.trainArgs['maxSeqLength']),
         tokenizer=self.tokenizer,
         args=self.training_args,
+        # i can pass in my own evaluation method here
       )
   
     # pass in resume_from_checkpoint=True to resume from a checkpoint
-    # when we train, we can see our progress and system info on wandb.ai
+    # click on wandb.ai link for training info
     trainer.train()
 
 
   def setUpConfig(self):
-    # cofigures ???
+    # quantized LoRA (QLoRA) - uses 4-bit normal float to lighten GPU load
     self.bnb_config = BitsAndBytesConfig(
       load_in_4bit = True,
       # we leave the model quantized in 4 bits
@@ -75,19 +75,23 @@ class QAGTrainer:
       bnb_4bit_compute_dtype = torch.float16
     )
     
+    mode = self.config['mode']
+    max_steps = int(self.config[f'max{mode.capitalize()}Steps'])
+    
     self.training_args = TrainingArguments(
       output_dir=self.paths['output'],
       per_device_train_batch_size = int(self.trainArgs['perDeviceTrainBatchSize']),
       gradient_accumulation_steps = int(self.trainArgs['gradientAccumulationSteps']),
       learning_rate = float(self.trainArgs['learningRate']),
-      logging_steps = int(self.trainArgs['loggingSteps']),
-      max_steps = int(self.trainArgs['maxSteps']),
+      logging_steps = int(self.trainArgs['saveSteps']),
+      max_steps = max_steps,
       logging_dir = self.paths['log'],
       save_strategy = self.trainArgs['saveStrategy'],
       save_steps = int(self.trainArgs['saveSteps']),
       evaluation_strategy = self.trainArgs['evaluationStrategy'],
       eval_steps = int(self.trainArgs['evalSteps']),
-      do_eval = bool(self.trainArgs['doEval'])
+      do_eval = bool(self.trainArgs['doEval']),
+      report_to = self.trainArgs['reportTo']
     )
 
     self.peft_config = LoraConfig(

@@ -4,14 +4,18 @@
     "argmax",
     "chardet",
     "dataframe",
+    "dtype",
     "fmeasure",
     "nkjv",
     "nltk",
     "onnx",
+    "peft",
     "potsawee",
     "preds",
     "Preprocess",
-    "pretrained"
+    "pretrained",
+    "pretraining",
+    "untokenized"
   ],
   "[python]": {
     "editor.defaultFormatter": "ms-python.autopep8"
