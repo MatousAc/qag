@@ -6,8 +6,18 @@ class DataProcessor():
     config = configparser.ConfigParser()
     config.read(configFilePath)
     self.paths = config['paths']
-    self.config = config['dataProcessor']
+    self.config = config['general']
     self.quiet = bool(self.config['quiet'])
+
+    # setting functions
+    format = self.config['dataFormat']
+    match format:
+      case 'parHlSen_Ans': self.formatText = self.parHlSen_Ans
+      case 'parHlAns_Q': self.formatText = self.parHlAns_Q
+    
+    if bool(self.config['packing']): self.getExamples = self.formatText
+    else: self.getExamples = self.unpackedProcessing
+
     self.load()
   
   def load(self):
@@ -21,19 +31,30 @@ class DataProcessor():
     if not self.quiet: print(self.train_dataset[0])
 
 
-  # define data processing functions that produce the actual untokenized input for various training phases
-  def contextAnswer(self, example, i):
-    return f'Select answer: {example["paragraph_sentence"][i]}\n Answer: {example["answer"][i]}'
-
-  def answer(self, example):
-    return f'Answer: {example["answer"]}'
-
-  def processData(self, examples):
+  # data processing f(x)s
+  def unpackedProcessing(self, examples):
     output_texts = []
     for i in range(len(examples["answer"])):
-      text = self.contextAnswer(examples, i)
+      text = self.parHlSen_Ans(examples[i])
       output_texts.append(text)
     return output_texts
 
-  # def sampleDataFx(self, dataFx):
-  #   return dataFx([self.train_dataset[0]])
+  def test(self, i = 0):
+    print(self.formatText([self.train_dataset[i]]))
+
+  # formatting f(x)s for input to various training phases
+  def parHlSen_Ans(self, example):
+    example = example[0]
+    return (f'### Highlighted context: {example["paragraph_sentence"]}\n '
+            + f'### Answer: {example["answer"]}')
+
+  def parHlAns_Q(self, example):
+    example = example[0]
+    return (f'### Highlighted context: {example["paragraph_sentence"]} '
+            + f'Answer: {example["answer"]}\n '
+            + f'### Question {example["question"]}')
+  
+if __name__ == '__main__':
+  print('##### Testing DataProcessor #####')
+  dp = DataProcessor()
+  dp.test()

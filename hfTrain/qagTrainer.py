@@ -13,7 +13,7 @@ class QAGTrainer:
     self.paths = config['paths']
     self.peft = config['peft']
     self.trainArgs = config['trainArgs']
-    self.config = config['qagTrainer']
+    self.config = config['general']
     if bool(self.config['ignoreWarnings']): self.warningIgnore()
     self.setUpConfig()
   
@@ -54,10 +54,11 @@ class QAGTrainer:
         train_dataset=dataProcessor.train_dataset,
         eval_dataset=dataProcessor.eval_dataset,
         peft_config=self.peft_config,
-        formatting_func=dataProcessor.processData,
+        formatting_func=dataProcessor.getExamples(),
         max_seq_length=int(self.trainArgs['maxSeqLength']),
         tokenizer=self.tokenizer,
         args=self.training_args,
+        packing=bool(self.config['packing']),
         # i can pass in my own evaluation method here
       )
   
