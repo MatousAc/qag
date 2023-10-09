@@ -12,9 +12,14 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# models
 build*
 dist
 models*
 models/
 baseModels/
 */wandb/
+
+# data
+SQuAD/
+customData/
