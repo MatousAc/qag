@@ -2,11 +2,12 @@
 # tmux new -s aqgTrain
 # run. then detach w/ Ctrl+B, d
 
-from dataProcessor import DataProcessor
+from dataFormatter import DataFormatter
 from qagTrainer import QAGTrainer
 
 
 trainer = QAGTrainer()
 trainer.loadModel()
-dp = DataProcessor()
-trainer.train(dp)
+df = DataFormatter()
+trainer.train(df)
+trainer.testInferenceLoop(df)
