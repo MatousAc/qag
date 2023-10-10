@@ -1,30 +1,25 @@
 # import libraries we need
-import configparser
 import torch
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, TrainingArguments 
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from peft import LoraConfig
 from peft import PeftModel
+from qagBase import QAGBase
 from dataFormatter import DataFormatter
 
-class QAGTrainer:
-  def __init__(self, configFilePath = 'qag.ini'):
-    config = configparser.ConfigParser()
-    config.read(configFilePath)
-    self.paths = config['paths']
-    self.peft = config['peft']
-    self.trainArgs = config['trainArgs']
-    self.genCf = config['general']
-    self.trainCf = config['qagTrainer']
-    if (self.genCf['ignoreWarnings'] == 'True'): self.warningIgnore()
+class QAGTrainer(QAGBase):
+  def configure(self):
+    self.peft = self.cp['peft']
+    self.trainArgs = self.cp['trainArgs']
+    self.trainCf = self.cp['qagTrainer']
     mode = self.trainCf['mode']
     self.maxSteps = int(self.trainArgs[f'max{mode.capitalize()}Steps'])
-    self.setUpConfig()
+    self.configureTraining()
 
   def announce(self, str):
     print(f'\rQAG Trainer state: {str}')
   
-  def setUpConfig(self):
+  def configureTraining(self):
     # quantized LoRA (QLoRA) - uses 4-bit normal float to lighten GPU load
     self.bnbConfig = BitsAndBytesConfig(
       load_in_4bit = True,
@@ -89,8 +84,9 @@ class QAGTrainer:
   def train(self, dataFormatter: DataFormatter):
     collator = None
     if (self.trainCf['optimizeCompletion'] == 'True'):
-      response_template = " ### Answer:"
-      collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=self.tokenizer)
+      collator = DataCollatorForCompletionOnlyLM(
+        dataFormatter.responseTemplate, tokenizer=self.tokenizer
+      )
     
     # use the SFTTrainer from HuggingFace's trl
     trainer = SFTTrainer(
@@ -130,12 +126,6 @@ class QAGTrainer:
     while not cmd:
       self.testInference(dataFormatter)
       cmd = input()
-
-  # misc f(x)s
-  def warningIgnore(self):
-    import warnings # i import here and hide this
-    warnings.filterwarnings('ignore', category = DeprecationWarning)
-    warnings.filterwarnings('ignore', category = FutureWarning)
 
 
 if __name__ == '__main__':

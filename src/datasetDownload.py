@@ -15,4 +15,4 @@ if doConcat:
 
 
 for split, dataset in datasetDict.items():
-    dataset.to_json(f"{destination}{split}.jsonl")
+    dataset.to_json(f"{destination}/{split}.jsonl")

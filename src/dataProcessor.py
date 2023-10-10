@@ -1,18 +1,14 @@
-import configparser
 from datasets import load_dataset, Dataset, DatasetDict
 import pandas as pd
 import random
+from qagBase import QAGBase
 
-class DataProcessor():
-  def __init__(self, configFilePath = 'qag.ini'):
-    config = configparser.ConfigParser()
-    config.read(configFilePath)
-    self.source = config['paths']['dpSource']
-    self.destination = config['paths']['dpDest']
-    self.genCf = config['general']
-    self.quiet = self.genCf['quiet'] == 'True'
-    self.dpCf = config['dataProcessor']
-
+class DataProcessor(QAGBase):
+  def configure(self):
+    self.dpCf = self.cp['dataProcessor']
+    self.source = self.dpCf['dpSource']
+    self.destination = self.dpCf['dpDest']
+    
     bibleDataSource = '../data/bible/nkjv.csv'
     self.nkjv = pd.read_csv(bibleDataSource)
 
@@ -25,18 +21,17 @@ class DataProcessor():
   def qgToAE(self):
     dataset = load_dataset(self.source)
     df = dataset['train'].to_pandas()
-    # print(dataset)
     df = df[['answer', 'question','sentence']]
-    grouped = df.groupby('sentence').agg({'answer': ' <sep> '.join, 'question': 'count'}).reset_index()
+    grouped = df.groupby('sentence').agg({
+      'answer': lambda x: ' <sep> '.join(set(x)), 
+      'question': 'count'
+    }).reset_index()
     grouped.rename(columns={'question': 'count'}, inplace=True)
-    # save filtering for later
-    # grouped = grouped[grouped['count'] >= int(self.config['aeMinAnswerCount'])]
     print(grouped.head())
     print(len(grouped))
-    datasetDict = Dataset.from_pandas(grouped.reset_index(drop=True))
+    dataset = Dataset.from_pandas(grouped.reset_index(drop=True))
     print(dataset)
-    for split, dataset in datasetDict.items():
-      dataset.to_json(f"{self.destination}/{split}AE.jsonl")
+    dataset.to_json(f"{self.destination}/data.jsonl")
     
 
   def getVerse(self, book, startChapter, startVerse, endChapter = None, endVerse = None):
