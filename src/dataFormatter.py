@@ -28,14 +28,16 @@ class DataFormatter(QAGBase):
     if 'AE' in self.paths['data']:
       for split, dataset in dsDict.items():
         dsDict[split] = dataset.filter(
-          lambda row: row['count'] > int(self.dfCf['aeMinAnswerCount'])
+          lambda row: row['count'] >= int(self.dfCf['aeMinAnswerCount'])
         )
     
-    if not self.quiet: print(dsDict)
     if len(dsDict) == 1:
+      if not self.quiet: print('Splitting data . . .')
       key = [split for split in dsDict][0]
       dsDict = dsDict[key].train_test_split(test_size=float(self.dfCf['evalToTrainRatio']))
-    if not self.quiet: print(dsDict)
+    if not self.quiet:
+      print('Results:')
+      print(dsDict)
     
     self.trainDataset = dsDict['train']
     self.evalDataset = dsDict['test']
@@ -47,7 +49,7 @@ class DataFormatter(QAGBase):
   def unpackedProcessing(self, examples):
     output_texts = []
     for i in range(len(examples["answer"])):
-      text = self.parHlSen_A(examples[i])
+      text = self.formatText(examples)
       output_texts.append(text)
     return output_texts
 
@@ -66,12 +68,12 @@ class DataFormatter(QAGBase):
   
   def parHlSen_A(self, example):
     return (f'{self.delim} Highlighted context: {example["paragraph_sentence"]}\n'
-            + f'{self.responseTemplate} Answer: {example["answer"]}')
+            + f'{self.responseTemplate} {example["answer"]}')
 
   def parHlAns_Q(self, example):
     return (f'{self.delim} Highlighted context: {example["paragraph_sentence"]} '
             + f'Answer: {example["answer"]}\n'
-            + f'{self.responseTemplate  } Question {example["question"]}')
+            + f'{self.responseTemplate  } {example["question"]}')
   
 if __name__ == '__main__':
   print('Testing DataProcessor . . .')

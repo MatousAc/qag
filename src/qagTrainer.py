@@ -99,8 +99,8 @@ class QAGTrainer(QAGBase):
         tokenizer=self.tokenizer,
         args=self.trainingArgs,
         packing=self.trainCf['packing'] == 'True',
-        # i can pass in my own evaluation method here
         data_collator=collator,
+        # i can pass in my own evaluation method here
       )
   
     # pass in resume_from_checkpoint=True to resume from a checkpoint
