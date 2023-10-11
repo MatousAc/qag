@@ -8,6 +8,7 @@ class QAGBase:
     self.genCf = self.cp['general']
     if (self.genCf['ignoreWarnings'] == 'True'): self.warningIgnore()
     self.quiet = self.genCf['quiet'] == 'True'
+    self.trainFor = self.genCf["trainFor"]
     self.configure()
   
   def configure():
@@ -17,3 +18,5 @@ class QAGBase:
     import warnings # i import here and hide this
     warnings.filterwarnings('ignore', category = DeprecationWarning)
     warnings.filterwarnings('ignore', category = FutureWarning)
+    import os
+    os.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = 'true'

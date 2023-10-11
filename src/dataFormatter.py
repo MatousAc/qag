@@ -6,9 +6,12 @@ class DataFormatter(QAGBase):
   def configure(self):
     self.dfCf = self.cp['dataFormatter']
     self.delim = self.dfCf['promptDelim']
-    self.respTemple = self.dfCf["responseTemplate"]
-
-    # setting functions
+    self.respTemple = self.dfCf[f'respTemple{self.trainFor}']
+    self.fxMux()
+    self.load()
+  
+  def fxMux(self):
+    # multiplexing && setting functions
     format = self.dfCf['dataFormat']
     match format:
       case 'parHlSen_A': self.formatText = self.parHlSen_A
@@ -18,8 +21,6 @@ class DataFormatter(QAGBase):
     if (self.cp['qagTrainer']['packing'] == 'True'):
       self.getExamples = self.formatText
     else: self.getExamples = self.unpackedProcessing
-
-    self.load()
   
   def load(self):
     if not self.quiet: print('Loading Data . . .')
@@ -48,6 +49,8 @@ class DataFormatter(QAGBase):
   # data processing f(x)s
   def unpackedProcessing(self, examples):
     output_texts = []
+    # note that at this point, examples is a dictionary of lists. e.g.:
+    # {'sentence': ['sent1', 'sent2' ...], 'answer': ['ans1', ...], ...}
     for i in range(len(examples["answer"])):
       text = self.formatText(examples, i)
       output_texts.append(text)
@@ -59,7 +62,7 @@ class DataFormatter(QAGBase):
   def getEvalSample(self): # update when we have better data resources
     dp = DataProcessor()    
     return (f'{self.delim} Highlighted context: {dp.getRandomVerse()}\n'
-            + self.responseTemplate)
+            + self.respTemple)
 
   # formatting f(x)s for input to various training phases
   def sen_As(self, example, i):
@@ -73,7 +76,7 @@ class DataFormatter(QAGBase):
   def parHlAns_Q(self, example, i):
     return (f'{self.delim} Highlighted context: {example["paragraph_sentence"][i]} '
             + f'Answer: {example["answer"][i]}\n'
-            + f'{self.respTemple  } {example["question"][i]}')
+            + f'{self.respTemple} {example["question"][i]}')
   
 if __name__ == '__main__':
   print('Testing DataProcessor . . .')
