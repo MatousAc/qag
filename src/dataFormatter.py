@@ -6,7 +6,7 @@ class DataFormatter(QAGBase):
   def configure(self):
     self.dfCf = self.cp['dataFormatter']
     self.delim = self.dfCf['promptDelim']
-    self.responseTemplate = f' {self.dfCf["responseTemplate"]}'
+    self.respTemple = self.dfCf["responseTemplate"]
 
     # setting functions
     format = self.dfCf['dataFormat']
@@ -44,36 +44,37 @@ class DataFormatter(QAGBase):
 
     if not self.quiet: print(self.trainDataset[0])
 
-
   # data processing f(x)s
   def unpackedProcessing(self, examples):
     output_texts = []
-    for i in range(len(examples["answer"])):
-      text = self.formatText(examples)
+    for i in range(len(examples['answer'])):
+      # note that at this point, examples has the form:
+      # {'sentence': ['sent1', 'sent2' ...], 'answer': ['ans1', ...], ...}
+      text = self.formatText(examples, i)
       output_texts.append(text)
     return output_texts
 
   def sampleDataInput(self, i = 0):
-    print(self.formatText([self.trainDataset[i]][0]))
+    print(self.formatText([self.trainDataset][0], i))
   
   def getEvalSample(self): # update when we have better data resources
     dp = DataProcessor()    
     return (f'{self.delim} Highlighted context: {dp.getRandomVerse()}\n'
-            + self.responseTemplate)
+            + self.respTemple)
 
   # formatting f(x)s for input to various training phases
-  def sen_As(self, example):
-    return (f'{self.delim} Context: {example["sentence"]}\n'
-            + f'{self.responseTemplate} {example["answer"]}')
+  def sen_As(self, example, i):
+    return (f'{self.delim} Context: {example["sentence"][i]}'
+            + f'{self.respTemple} {example["answer"][i]}')
   
-  def parHlSen_A(self, example):
-    return (f'{self.delim} Highlighted context: {example["paragraph_sentence"]}\n'
-            + f'{self.responseTemplate} {example["answer"]}')
+  def parHlSen_A(self, example, i):
+    return (f'{self.delim} Highlighted context: {example["paragraph_sentence"][i]}\n'
+            + f'{self.respTemple} {example["answer"][i]}')
 
-  def parHlAns_Q(self, example):
-    return (f'{self.delim} Highlighted context: {example["paragraph_sentence"]} '
-            + f'Answer: {example["answer"]}\n'
-            + f'{self.responseTemplate  } {example["question"]}')
+  def parHlAns_Q(self, example, i):
+    return (f'{self.delim} Highlighted context: {example["paragraph_sentence"][i]} '
+            + f'Answer: {example["answer"][i]}\n'
+            + f'{self.respTemple  } {example["question"][i]}')
   
 if __name__ == '__main__':
   print('Testing DataProcessor . . .')

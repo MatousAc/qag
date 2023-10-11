@@ -85,7 +85,7 @@ class QAGTrainer(QAGBase):
     collator = None
     if (self.trainCf['optimizeCompletion'] == 'True'):
       collator = DataCollatorForCompletionOnlyLM(
-        dataFormatter.responseTemplate, tokenizer=self.tokenizer
+        dataFormatter.respTemple, tokenizer=self.tokenizer
       )
     
     # use the SFTTrainer from HuggingFace's trl
@@ -110,6 +110,7 @@ class QAGTrainer(QAGBase):
   # testing models we just trained
   def testInference(self, dataFormatter: DataFormatter):
     # must first loadModel()
+    print('##### Start Inference Test #####')
     loraLocation = f'{self.paths["output"]}/checkpoint-{self.maxSteps}'
     self.fineTunedModel = PeftModel.from_pretrained(self.baseModel, loraLocation)
 
@@ -120,6 +121,8 @@ class QAGTrainer(QAGBase):
     with torch.no_grad():
       tokens = self.fineTunedModel.generate(**modelInput, max_new_tokens=100)[0]
       print(self.tokenizer.decode(tokens, skip_special_tokens=True))
+    
+    print('##### End Inference Test #####')
   
   def testInferenceLoop(self, dataFormatter: DataFormatter):
     cmd = input('Enter to continue, anything else to quit.')
