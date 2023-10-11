@@ -49,7 +49,7 @@ class DataFormatter(QAGBase):
   def unpackedProcessing(self, examples):
     output_texts = []
     for i in range(len(examples["answer"])):
-      text = self.formatText(examples)
+      text = self.formatText(examples, i)
       output_texts.append(text)
     return output_texts
 
