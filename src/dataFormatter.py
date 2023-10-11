@@ -44,13 +44,12 @@ class DataFormatter(QAGBase):
 
     if not self.quiet: print(self.trainDataset[0])
 
+
   # data processing f(x)s
   def unpackedProcessing(self, examples):
     output_texts = []
-    for i in range(len(examples['answer'])):
-      # note that at this point, examples has the form:
-      # {'sentence': ['sent1', 'sent2' ...], 'answer': ['ans1', ...], ...}
-      text = self.formatText(examples, i)
+    for i in range(len(examples["answer"])):
+      text = self.formatText(examples)
       output_texts.append(text)
     return output_texts
 
@@ -60,7 +59,7 @@ class DataFormatter(QAGBase):
   def getEvalSample(self): # update when we have better data resources
     dp = DataProcessor()    
     return (f'{self.delim} Highlighted context: {dp.getRandomVerse()}\n'
-            + self.respTemple)
+            + self.responseTemplate)
 
   # formatting f(x)s for input to various training phases
   def sen_As(self, example, i):
