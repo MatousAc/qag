@@ -57,7 +57,13 @@ class DataFormatter(QAGBase):
     return output_texts
 
   def sampleDataInput(self, i = 0):
-    print(self.formatText([self.trainDataset][0], i))
+    return self.formatText([self.trainDataset][0], i)
+  
+  def getEvalInputs(self, numInputs):
+    inputs = []
+    for i in range(numInputs):
+      inputs.append(self.sampleDataInput(i))
+    return inputs
   
   def getEvalSample(self): # update when we have better data resources
     dp = DataProcessor()    
@@ -81,4 +87,4 @@ class DataFormatter(QAGBase):
 if __name__ == '__main__':
   print('Testing DataProcessor . . .')
   df = DataFormatter()
-  df.sampleDataInput()
+  print(df.sampleDataInput())

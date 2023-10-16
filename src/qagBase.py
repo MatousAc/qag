@@ -1,14 +1,15 @@
-import configparser
+from configparser import ConfigParser, ExtendedInterpolation
 
 class QAGBase:
-  def __init__(self, configFilePath = 'qag.ini'):
-    self.cp = configparser.ConfigParser()
+  def __init__(self, configFilePath = 'qag.ini', dataFormatter = None):
+    self.cp = ConfigParser(interpolation=ExtendedInterpolation())
     self.cp.read(configFilePath)
     self.paths = self.cp['paths']
     self.genCf = self.cp['general']
     if (self.genCf['ignoreWarnings'] == 'True'): self.warningIgnore()
     self.quiet = self.genCf['quiet'] == 'True'
     self.trainFor = self.genCf["trainFor"]
+    if dataFormatter: self.dataFormatter = dataFormatter
     self.configure()
   
   def configure():

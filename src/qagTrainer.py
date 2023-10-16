@@ -22,32 +22,89 @@ class QAGTrainer(QAGBase):
     if fxStr == 'computeAccuracy': self.metricFx = None
     else: self.metricFx = evaluate.load(fxStr)
 
-  def computeMetric(self, p): # currently broken
-    # predictions = ["hello there general kenobi", "foo bar foobar"]
-    # references = [["hello there general kenobi", "hello there !"],["foo bar foobar"]]
-    # bleu = evaluate.load("bleu")
-    # results = bleu.compute(predictions=predictions, references=references)
-    # print(results)
+  def preprocessLogits(self, logits: torch.Tensor, labels: torch.Tensor) ->   torch.Tensor:
+    # at this point the model gives us logits and labels as tensors. labels seem to be shaped as
+    # lists of token sequence references (e.g. in torch.Size([8, 146])) there are 8 references 
+    # of length 146 each). note that the important labels are padded by a lot of -100 tokens which
+    # we should filter out. logits add one dimension to this as instead of the 'token_id' value
+    # they include an array of non-normalized probabilities, one for every token. this leaves us
+    # with a huge z-dimension (e.g. torch.Size([8, 146, 32000])) that is basically the size of
+    # our tokenizer vocabulary. the higher values represent higher probabilities.
+    # thus, we can just pick the index of the highest value in dim=-1 (last dimension) to 
+    # get our 'most probable token_id'
+    # see issue: https://github.com/huggingface/transformers/issues/15466
+    # unfortunately, just picking the highest probability in each tensor is not sufficient
+    # to produce grammatically valid sentences
+
+    # FIXME: use top-k or top-p methods of selecting tokens
+    # try seeing what the library does by default
+    # also remove this debugging stuff below evetually
+    # print('Looking at Logits\nAll Logits in one:')
+    # print(f'logits.shape: {logits.shape}')
+    # print(logits)
+    # print('Looking at Lables\nAll Labels in one:')
+    # print(f'labels.shape: {labels.shape}')
+    # print(labels)
     
-    # do we have to decode our predictions?
-    decoded_preds = self.detokenize(p.predictions)
+    # logits = logits.argmax(dim=-1)
+    # print('Looking at Logits AGAIN\nAll Logits in one:')
+    # print(f'logits.shape: {logits.shape}')
+    # print(logits)
+      
+    # print('Done w/ Preprocessing Logits')
+    return logits.argmax(dim = -1)
     
+  def injectCustomEvaluation(self, evalPred):
+    # this function should just output the performance of the latests checkpoint
+    # curretly, it does no such thing
+    print(f'Evaluating with Gooogle Bleu')
+    
+    inputs = self.dataFormatter.getEvalInputs(20)
+    print(inputs)
+    prompts = []
+    reference = []
+    for put in inputs:
+      splt = put.split(self.dataFormatter.respTemple)
+      prompts.append(splt[0] + self.dataFormatter.respTemple)
+      reference.append([splt[1]])
+    print('Prompts')
+    print(prompts)
+    print('Reference')
+    print(reference)
+    
+    
+    
+    # takes: predictions (list of str): list of translations to score.
+    #        references (list of list of str): list of lists of references for each translation.
+    metrics = self.metricFx.compute(predictions=prompts, references=reference)
+    print(metrics)
+    return metrics
+
+  def computeMetric(self, evalPred):
+    # we receive a tupe of predictions and references.
+    # these should be triply-nested lists of ints
+    print(f'Evaluating with Gooogle Bleu')
+    preds, labels = evalPred
+    
+    # we have to decode our predictions for most custom metrics
+    print('Predictions:')
+    print(preds)
+    preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
+    decodedPreds = [self.detokenize(ids) for ids in preds]
+    print(decodedPreds)
+    
+    print('References:')
+    print(labels)
     # replace -100 in the labels as we can't decode them.
     labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-    decoded_labels = self.detokenize(labels)
+    # every reference is a list of references by default
+    decodedLabels = [[self.detokenize(ids)] for ids in labels]
+
+    print(decodedLabels)
     
-    # why can't I see anything I print out? I can't even log from here
-    print(f'Evaluating with {self.trainCf["metricFx"].upper()}')
-    print('Predictions:')
-    print(p.predictions)
-    print('References:')
-    print(p.references)
-    
-    for ref, pred in zip(decoded_preds, decoded_labels):
-      self.metricFx.add(references=ref, predictions=pred)
-    metrics = self.metricFx.compute()
-    # metrics = self.metricFx.compute(predictions=decoded_preds, references=decoded_labels,
-                                    # tokenizer=self.tokenizer)
+    # takes: predictions (list of str): list of translations to score.
+    #        references (list of list of str): list of lists of references for each translation.
+    metrics = self.metricFx.compute(predictions=decodedPreds, references=decodedLabels)
     print(metrics)
     return metrics
 
@@ -72,7 +129,10 @@ class QAGTrainer(QAGBase):
       save_steps = min(int(self.trainArgs['saveSteps']), self.maxSteps),
       evaluation_strategy = self.trainArgs['evaluationStrategy'],
       eval_steps = int(self.trainArgs['evalSteps']),
-      report_to = self.trainArgs['reportTo']
+      report_to = self.trainArgs['reportTo'],
+      eval_accumulation_steps = int(self.trainArgs['evalAccumulationSteps']),
+      save_total_limit = int(self.trainArgs['saveTotalLimit']),
+      load_best_model_at_end = self.trainArgs['saveTotalLimit'] == 'True',
     )
 
     self.peftConfig = LoraConfig(
@@ -103,36 +163,37 @@ class QAGTrainer(QAGBase):
     if (self.trainCf['addCustomTokens'] == 'True'): self.addCustomTokens()
   
   def addCustomTokens(self):
-    newTokens = ['<hl>']
-    vocabulary = self.tokenizer.get_vocab().keys()
-    for token in newTokens:
-      # check to see if new token is in the vocabulary or not
-      if token not in vocabulary:
-        self.tokenizer.add_tokens(token)
-
+    specialTokens = [
+      {'highlight_token': '<hl>'},
+      {"pad_token":"<pad>"}
+    ]
+    numAddedToks = self.tokenizer.add_special_tokens(specialTokens)
+    if not self.quiet: print(f'Added {numAddedToks} tokens.')
     self.baseModel.resize_token_embeddings(len(self.tokenizer))
-
-  def train(self, dataFormatter: DataFormatter):
+    
+  def train(self):
     collator = None # by passing None, we use the default collator
     if (self.trainCf['optimizeCompletion'] == 'True'):
       collator = DataCollatorForCompletionOnlyLM(
-        dataFormatter.respTemple, tokenizer=self.tokenizer
+        self.dataFormatter.respTemple, tokenizer=self.tokenizer
       )
     
     # use the SFTTrainer from HuggingFace's trl library
     trainer = SFTTrainer(
         model=self.baseModel,
-        train_dataset = dataFormatter.trainDataset,
-        eval_dataset = dataFormatter.evalDataset,
+        train_dataset = self.dataFormatter.trainDataset,
+        eval_dataset = self.dataFormatter.evalDataset,
         peft_config = self.peftConfig,
-        formatting_func = dataFormatter.getExamples,
+        formatting_func = self.dataFormatter.getExamples,
         max_seq_length = int(self.trainArgs['maxSeqLength']),
         tokenizer = self.tokenizer,
         args = self.trainingArgs,
         packing = self.trainCf['packing'] == 'True',
         data_collator = collator,
         # pass custom eval here
-        compute_metrics = None if self.metricFx == None else self.computeMetric
+        compute_metrics = None if self.metricFx == None else self.computeMetric,
+        # reduce logits into token_ids for custom metrics
+        preprocess_logits_for_metrics = None if self.metricFx == None else self.preprocessLogits
       )
   
     # pass in resume_from_checkpoint=True to resume from a checkpoint
@@ -140,17 +201,34 @@ class QAGTrainer(QAGBase):
     trainer.train()
 
   def detokenize(self, tokens):
-    return self.tokenizer.decode(tokens, skip_special_tokens=True)
-    
-  # testing models we just trained
-  def testInference(self, dataFormatter: DataFormatter):
+    with torch.no_grad():
+      return self.tokenizer.decode(tokens, skip_special_tokens=True)
+
+  def runInference(self):
     # must first loadModel()
-    print('##### Start Inference Test #####')
     loraLocation = f'{self.paths["output"]}/checkpoint-{self.maxSteps}'
     self.fineTunedModel = PeftModel.from_pretrained(self.baseModel, loraLocation)
 
-    evalPrompt = dataFormatter.getEvalSample()
+    evalPrompt = self.dataFormatter.getEvalSample()
     modelInput = self.tokenizer(evalPrompt, return_tensors='pt').to('cuda')
+    # print('Model input')
+    # print(modelInput)
+
+    self.fineTunedModel.eval()
+    with torch.no_grad():
+      tokens = self.fineTunedModel.generate(**modelInput, max_new_tokens=100)[0]
+      print(self.detokenize(tokens))
+    
+  # testing models we just trained
+  def testInference(self):
+    # must first loadModel()
+    loraLocation = f'{self.paths["output"]}/checkpoint-{self.maxSteps}'
+    self.fineTunedModel = PeftModel.from_pretrained(self.baseModel, loraLocation)
+
+    evalPrompt = self.dataFormatter.getEvalSample()
+    modelInput = self.tokenizer(evalPrompt, return_tensors='pt').to('cuda')
+    # print('Model input')
+    # print(modelInput)
 
     self.fineTunedModel.eval()
     with torch.no_grad():
@@ -159,16 +237,16 @@ class QAGTrainer(QAGBase):
     
     print('##### End Inference Test #####')
   
-  def testInferenceLoop(self, dataFormatter: DataFormatter):
+  def testInferenceLoop(self):
     cmd = input('Enter to continue, anything else to quit.')
     while not cmd:
-      self.testInference(dataFormatter)
+      self.testInference(self.dataFormatter)
       cmd = input()
 
 
 if __name__ == '__main__':
-  trainer = QAGTrainer()
-  trainer.loadModel()
   df = DataFormatter()
-  trainer.train(df)
-  trainer.testInference(df)
+  trainer = QAGTrainer(dataFormatter=df)
+  trainer.loadModel()
+  trainer.train()
+  trainer.testInference()

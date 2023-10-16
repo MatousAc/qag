@@ -1,0 +1,47 @@
+Loading Data . . .
+Splitting data . . .
+Results:
+DatasetDict({
+    train: Dataset({
+        features: ['sentence', 'answer', 'count'],
+        num_rows: 10132
+    })
+    test: Dataset({
+        features: ['sentence', 'answer', 'count'],
+        num_rows: 534
+    })
+})
+{'sentence': 'Before 1903 members of the National Guard were considered state soldiers unless federalized (i.e., activated) by the President.', 'answer': '1903 <sep> state soldiers', 'count': 2}
+##### Start Inference Test #####
+Model input
+{'input_ids': tensor([[    1,   835,  5057,  4366,   287,  3030, 29901,  1126,   372,  2996,
+           304,  1209, 29892,   746, 23647,   295,   750,  9820,   484,  6936,
+         29892,   393, 10968,  1497,   304,   365, 10910, 29892,   376, 12600,
+           592,  3448, 29892,   393,   306,  1122,   748,   304,   590,  1914,
+          2058,   322,   304,   590,  4234, 29889,    13,     1, 29871,   835,
+          7670,   302,  1309, 29879, 29892,  8820, 29892,   322, 12216,  2129,
+         29901]], device='cuda:1'), 'attention_mask': tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], device='cuda:1')}
+Detokenizing Tokens:
+<class 'torch.Tensor'>
+tensor([    1,   835,  5057,  4366,   287,  3030, 29901,  1126,   372,  2996,
+          304,  1209, 29892,   746, 23647,   295,   750,  9820,   484,  6936,
+        29892,   393, 10968,  1497,   304,   365, 10910, 29892,   376, 12600,
+          592,  3448, 29892,   393,   306,  1122,   748,   304,   590,  1914,
+         2058,   322,   304,   590,  4234, 29889,    13,     1, 29871,   835,
+         7670,   302,  1309, 29879, 29892,  8820, 29892,   322, 12216,  2129,
+        29901, 10968,   529, 19570, 29958, 23647,   295,   529, 19570, 29958,
+          365, 10910, 29892,   376, 12600,   592,  3448, 29892,   393,   306,
+         1122,   748,   304,   590,  1914,  2058,   322,   304,   590,  4234,
+        29889,   529, 19570, 29958, 10968,  1497,   304,   365, 10910, 29892,
+          376, 12600,   592,  3448, 29892,   393,   306,  1122,   748,   304,
+          590,  1914,  2058,   322,   304,   590,  4234, 29889,   529, 19570,
+        29958, 23647,   295,   529, 19570, 29958,   365, 10910, 29892,   376,
+        12600,   592,  3448, 29892,   393,   306,  1122,   748,   304,   590,
+         1914,  2058,   322,   304,   590,  4234, 29889,   529, 19570, 29958,
+        10968,  1497,   304,   365, 10910, 29892,   376, 12600,   592,  3448,
+        29892], device='cuda:1')
+### Highlighted context: And it came to pass, when Rachel had borne Joseph, that Jacob said to Laban, "Send me away, that I may go to my own place and to my country.
+  ### Key nouns, actions, and phrases: Jacob <sep> Rachel <sep> Laban, "Send me away, that I may go to my own place and to my country. <sep> Jacob said to Laban, "Send me away, that I may go to my own place and to my country. <sep> Rachel <sep> Laban, "Send me away, that I may go to my own place and to my country. <sep> Jacob said to Laban, "Send me away,
+##### End Inference Test #####
