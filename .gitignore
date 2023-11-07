@@ -1,4 +1,5 @@
 *.zip
+!research/onnxResearch.zip
 pbe_aqg_potsawee_t5/
 transformers-js*
 onnxModel/onnx_*
