@@ -1,4 +1,4 @@
-name: aqg_t5
+name: qagT5Cuda
 channels:
   - conda-forge
   - defaults
@@ -25,8 +25,7 @@ dependencies:
   - jupyter_core=5.3.0=py311h38be061_0
   - ld_impl_linux-64=2.38=h1181459_1
   - libffi=3.4.2=h6a678d5_6
-  - libgcc-ng=12.2.0=h65d46
-  01_19
+  - libgcc-ng=12.2.0=h65d4601_19
   - libsodium=1.0.18=h36c2ea0_1
   - libstdcxx-ng=12.2.0=h46fd767_19
   - libuuid=1.41.5=h5eee18b_0
@@ -158,4 +157,4 @@ dependencies:
       - wrapt==1.14.1
       - xxhash==3.2.0
       - yarl==1.9.2
-prefix: /home/ac/miniconda3/envs/aqg_t5
+prefix: /home/ac/miniconda3/envs/qagT5Cuda

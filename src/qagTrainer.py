@@ -247,6 +247,7 @@ if __name__ == '__main__':
   df = DataFormatter()
   trainer = QAGTrainer(dataFormatter=df)
   trainer.loadModel()
+  if len(sys.argv) == 1: sys.argv[1] = '-train'
   match sys.argv[1]:
     case '-infer': trainer.testInferenceLoop()
     case '-train' | _:
