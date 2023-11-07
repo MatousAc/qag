@@ -1,5 +1,4 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import transformers
 
 model_source = input('hf model name: ')
 model_destination = f'/home/ac/code/qag/models/{input("save to (models/...): ")}/'

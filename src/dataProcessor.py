@@ -1,6 +1,5 @@
-from datasets import load_dataset, Dataset, DatasetDict
-import pandas as pd
-import random
+import sys, pandas as pd, random
+from datasets import load_dataset, Dataset
 from qagBase import QAGBase
 
 class DataProcessor(QAGBase):
@@ -12,12 +11,6 @@ class DataProcessor(QAGBase):
     bibleDataSource = '../data/bible/nkjv.csv'
     self.nkjv = pd.read_csv(bibleDataSource)
 
-  def process(self):
-    match self.dpCf['mode']:
-      case 'none': return
-      case 'randomVerse': print(dp.getRandomVerse())
-      case 'qgToAE': self.qgToAE()
-
   def qgToAE(self):
     dataset = load_dataset(self.source)
     df = dataset['train'].to_pandas()
@@ -27,6 +20,7 @@ class DataProcessor(QAGBase):
       'question': 'count'
     }).reset_index()
     grouped.rename(columns={'question': 'count'}, inplace=True)
+    print(f'Mean Q&A per context: {grouped["count"].mean()}')
     print(grouped.head())
     print(len(grouped))
     dataset = Dataset.from_pandas(grouped.reset_index(drop=True))
@@ -60,6 +54,9 @@ class DataProcessor(QAGBase):
 
 if __name__ == '__main__':
   dp = DataProcessor()
-  dp.process()
+  match sys.argv[1]:
+    case 'randomVerse' | '-randomVerse': print(dp.getRandomVerse())
+    case 'qgToAE' | '-qgToAE': dp.qgToAE()
+    case 'none' | _: pass
 
 

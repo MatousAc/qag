@@ -1,11 +1,8 @@
 # import libraries we need
-import torch
-from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, TrainingArguments 
+import sys, torch, numpy as np, evaluate
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, TrainingArguments
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
-from peft import LoraConfig
-from peft import PeftModel
-import evaluate
-import numpy as np
+from peft import LoraConfig, PeftModel
 from qagBase import QAGBase
 from dataFormatter import DataFormatter
 
@@ -14,8 +11,8 @@ class QAGTrainer(QAGBase):
     self.peft = self.cp['peft']
     self.trainArgs = self.cp['trainArgs']
     self.trainCf = self.cp['qagTrainer']
-    mode = self.trainCf['mode']
-    self.maxSteps = int(self.trainArgs[f'max{mode.capitalize()}Steps'])
+    self.mode = self.trainCf['mode']
+    self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
     self.configureTraining()
     
     fxStr = self.trainCf['metricFx']
@@ -129,7 +126,8 @@ class QAGTrainer(QAGBase):
       save_steps = min(int(self.trainArgs['saveSteps']), self.maxSteps),
       evaluation_strategy = self.trainArgs['evaluationStrategy'],
       eval_steps = int(self.trainArgs['evalSteps']),
-      report_to = self.trainArgs['reportTo'],
+      # SFTTrainer auto reports to wandb if installed. put 'none' below to turn off
+      report_to = 'none' if self.mode == 'test' else 'wandb',
       eval_accumulation_steps = int(self.trainArgs['evalAccumulationSteps']),
       save_total_limit = int(self.trainArgs['saveTotalLimit']),
       load_best_model_at_end = self.trainArgs['saveTotalLimit'] == 'True',
@@ -140,7 +138,8 @@ class QAGTrainer(QAGBase):
       lora_dropout = float(self.peft['loraDropout']),
       r = int(self.peft['r']),
       bias = self.peft['bias'],
-      task_type = self.peft['taskType']
+      # causal lm means the lm only sees tokens to the left of what it's predicting
+      task_type = 'CAUSAL_LM'
     )
   
   def loadModel(self):
@@ -240,7 +239,7 @@ class QAGTrainer(QAGBase):
   def testInferenceLoop(self):
     cmd = input('Enter to continue, anything else to quit.')
     while not cmd:
-      self.testInference(self.dataFormatter)
+      self.testInference()
       cmd = input()
 
 
@@ -248,5 +247,8 @@ if __name__ == '__main__':
   df = DataFormatter()
   trainer = QAGTrainer(dataFormatter=df)
   trainer.loadModel()
-  trainer.train()
-  trainer.testInference()
+  match sys.argv[1]:
+    case '-infer': trainer.testInferenceLoop()
+    case '-train' | _:
+      trainer.train()
+      trainer.testInference()
