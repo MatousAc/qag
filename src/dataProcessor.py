@@ -27,6 +27,9 @@ class DataProcessor(QAGBase):
     print(dataset)
     dataset.to_json(f"{self.destination}/data.jsonl")
     
+  def pbeContextualize(self):
+    print(f'Ephesians 2:10 - {self.getVerse("Ephesians", 2, 10)}')
+
 
   def getVerse(self, book, startChapter, startVerse, endChapter = None, endVerse = None):
     # default to start positions
@@ -57,6 +60,7 @@ if __name__ == '__main__':
   match sys.argv[1]:
     case 'randomVerse' | '-randomVerse': print(dp.getRandomVerse())
     case 'qgToAE' | '-qgToAE': dp.qgToAE()
+    case 'pbeContextualize' | '-pbeContextualize': dp.pbeContextualize()
     case 'none' | _: pass
 
 

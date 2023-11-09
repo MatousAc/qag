@@ -2,13 +2,19 @@
   "cSpell.words": [
     "allenai",
     "argmax",
+    "astype",
+    "babienco",
     "chardet",
     "Cuda",
     "dataframe",
+    "dropna",
     "dtype",
+    "dtypes",
     "fastt",
+    "fillna",
     "fmeasure",
     "huggingface",
+    "iterrows",
     "Lmqg",
     "nkjv",
     "nltk",
@@ -21,6 +27,7 @@
     "Preprocess",
     "pretrained",
     "pretraining",
+    "uncapitalize",
     "untokenized"
   ],
   "[python]": {
