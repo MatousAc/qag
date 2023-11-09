@@ -3,7 +3,7 @@ import numpy as np
 import re
 
 dataSrc = '../data/pbe/raw'
-dataDest = '../data/pbe/clean'
+dataDest = '../data/pbe/clean/allQuestions.csv'
 
 # get data, remove columns, set proper dtypes
 # ['refQuestion', 'answer', 'categories', 'source', 'quality']
@@ -43,8 +43,7 @@ for cat in cats:
 # 7. extract reference "according to..." && capitalize question
 refRe = r'\s*According to (?P<book>(?:\d\s)?[a-zA-Z]+)\s(?P<chapter>\d+):(?P<verse>\d+)(?:[-,]?(?P<endVerse>\d+))?,?\s*'
 newCols = lsb['refQuestion'].str.extract(refRe, flags=re.IGNORECASE)
-questionCol = lsb['refQuestion'].str.replace(refRe, '', flags=re.IGNORECASE, regex=True)
-lsb.insert(loc=0, column='question', value=questionCol)
+lsb['question'] = lsb['refQuestion'].str.replace(refRe, '', flags=re.IGNORECASE, regex=True)
 lsb['question'] = lsb['question'].str.slice(stop=1).str.capitalize() + lsb['question'].str.slice(start=1)
 lsb = pd.concat([lsb, newCols], axis=1)
 # 8. combine datasets
@@ -53,32 +52,77 @@ cols += cats
 lsb = lsb[cols]
 bab = bab[cols]
 data = pd.concat([lsb, bab])
-print(f'Data\nshape: {data.shape}\ncols: {data.columns}')
-# 9. format all numbered answers same (#)
+# 9. change column type as necessary
+data['endVerse'] = data['endVerse'].fillna(data['verse'])
+data['chapter'] = data['chapter'].astype(np.int64)
+data['verse'] = data['verse'].astype(np.int64)
+data['endVerse'] = data['endVerse'].astype(np.int64)
+data['points'] = data['points'].astype(np.int64)
+data['answer'] = data['answer'].astype(str)
+# 10. format all numbered answers the same: (#)
+def formatAnswers(answer: str, allegedPoints: int):
+  # define f(x) to process each number
+  def processAnswer(match):
+    number = next(group for group in match.groups() if group is not None)
+    return f'({number}) ' # format
+  
+  numRe = r'(?:(?:\((\d+)\))|(?:(\d+)\.)|(?:(\d+)\)))\s*'
+  # sub different formats w/ correct format
+  answer = re.sub(numRe, processAnswer, answer)
+  pointCount = countPoints(answer)
+  
+  if (pointCount == 1):
+    parts = answer.split(';') # semicolons
+    # only split on commas if multiple points reported
+    if (len(parts) == 1) and (allegedPoints > 1):
+      parts = answer.split(',')
+    if len(parts) > 1:
+      res = []
+      currentNumber = 1
+      for part in parts:
+        res.append(f'({currentNumber}) {part.strip()}')
+        currentNumber += 1
+      answer = ' '.join(res)
+  return answer
+  
+def countPoints(answer: str):
+  numRe = r'\((\d+)\)'
+  return max(len(re.findall(numRe, answer)), 1)
 
-print(data[['book', 'chapter', 'verse', 'endVerse', 'question', 'answer']])
+data['answer'] = data.apply(lambda row: formatAnswers(row['answer'], row['points']), axis=1)
+data['points'] = data['answer'].apply(countPoints)
+# 11. uncapitalize unnecessarily capitalized words like "WHY", "WHAT", "WHICH", "NOT", "FROM"
+capsRe = r'\b[A-Z]{2,}\b'
+data['question'] = data['question'].str.replace(capsRe, lambda match: match.groups(1), regex=True)
+# 12. remove surrounding quotes and periods
+data['answer'] = data['answer'].str.replace(r'^"+|"+$|\.+$', r"", regex=True)
+# 13. Remove Be Specific, any caps, w/ or without parentheses
+data['question'] = data['question'].str.replace(r'\s*\(?Be Specific\)?\s*/i', r"", regex=True)
+# 14. transform "v #" to "verse #"
+data['question'] = data['question'].str.replace(r'v\s(\d+)', lambda match: f'verse {match.groups()[0]}', regex=True)
+# 15. remove any rows with a point-value greater than 15
+data = data[data['points'] < 13]
+# 16. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
+data = data.drop_duplicates(subset=['book', 'chapter', 'verse', 'question', 'answer'])
 
-# remove periods from the ends of answers
-# remove quotes from the answer if they are the first and last characters
-# uncapitalize unnecessarily capitalized words like "WHY", "WHAT", "WHICH", "NOT", "FROM"
-# Remove Be Specific, any caps, w/ or without parentheses
-# transform "v #" to "verse #"
-# remove any rows with a point-value greater than 15
-# print(bab[bab['points'] > 14])
+# finally save
+print(f'Saving this format to {dataDest}')
+print(f'Data\nshape: {data.shape}\ncols:\n{data.dtypes}')
+data.to_csv(dataDest, index=False)
 
 
 
+# df = pd.DataFrame(np.array([
+#   ['(1) Pontus (2) Galatia (3) Cappadocia (4) Asia (5) Bithynia', 5],
+#   ['the holy, amazing, blessed blood of Jesus Christ', 1],
+#   ['(1) grace and (2) peace', 1],
+#   ['1. Came to Jerusalem 2. Besieged it (Jerusalem)', 1],
+#   ['1) Jehoiakim, king of Judah 2) some of the articles of the house of God', 2],
+#   ['1) changes time 2) seasons 3) kings 4) up kings 5)  wise 6) knowledge', 6],
+#   ['1) iron 2)clay 3) bronze 4) silver 5.gold', 1],
+#   ['You (Nebuchadnezzar)', 1],
+#   ['1) the plain of Dura 2)the province of Babylon', 2],
+#   ['A watcher, a holy one', 2],
+#   ['Drive you; dwell beasts; eat grass; be wet', 1]
+# ]), columns=['answer', 'points'])
 
-
-# bab[bab['endVerse'].isnull()]['endVerse'] = bab['verse']
-# bab['endVerse'] = bab['endVerse'].astype(np.int64)
-# bab['verse'] = bab['verse'].astype(np.int64)
-# s = pd.Series([
-#   'According to John 12:13 . . .',
-#   'According to 1 Kings 2:3 . . .',
-#   'According to 1 Peter 1:2, v 2? (6000 points)'
-# ])
-# ref = s.str.extract(refRe, flags=re.IGNORECASE)
-# s = s.str.replace(refRe, '', flags=re.IGNORECASE, regex=True)
-# print(ref)
-# print(s)
