@@ -38,8 +38,8 @@ lsb['categories'] = lsb['categories'].str.replace(ptsRe, '', flags=re.IGNORECASE
 # 6. pull categories out into their own columns
 cats = ['2To3', 'bigPoints', 'people', 'places', 'names', 'numbers']
 for cat in cats:
-  lsb[cat] = lsb['categories'].str.contains(cat.lower())
-  bab[cat] = np.nan
+  lsb[cat] = lsb['categories'].str.contains(cat.lower()) == True
+  bab[cat] = False
 # 7. extract reference "according to..." && capitalize question
 refRe = r'\s*According to (?P<book>(?:\d\s)?[a-zA-Z]+)\s(?P<chapter>\d+):(?P<verse>\d+)(?:[-,]?(?P<endVerse>\d+))?,?\s*'
 newCols = lsb['refQuestion'].str.extract(refRe, flags=re.IGNORECASE)
@@ -91,9 +91,11 @@ def countPoints(answer: str):
 
 data['answer'] = data.apply(lambda row: formatAnswers(row['answer'], row['points']), axis=1)
 data['points'] = data['answer'].apply(countPoints)
+data['2To3'] = (data['points'] > 1) & (data['points'] <= 3)
+data['bigPoints'] = data['points'] > 3
 # 11. uncapitalize unnecessarily capitalized words like "WHY", "WHAT", "WHICH", "NOT", "FROM"
-capsRe = r'\b[A-Z]{2,}\b'
-data['question'] = data['question'].str.replace(capsRe, lambda match: match.groups(1), regex=True)
+capsRe = r'\b([A-Z]{2,})\b'
+data['question'] = data['question'].str.replace(capsRe, lambda match: match.groups()[0].lower(), regex=True)
 # 12. remove surrounding quotes and periods
 data['answer'] = data['answer'].str.replace(r'^"+|"+$|\.+$', r"", regex=True)
 # 13. Remove Be Specific, any caps, w/ or without parentheses
@@ -114,15 +116,18 @@ data.to_csv(dataDest, index=False)
 
 # df = pd.DataFrame(np.array([
 #   ['(1) Pontus (2) Galatia (3) Cappadocia (4) Asia (5) Bithynia', 5],
-#   ['the holy, amazing, blessed blood of Jesus Christ', 1],
-#   ['(1) grace and (2) peace', 1],
+#   ['the holy, amazing, blessed BLOOD of Jesus Christ', 1],
+#   ['(1) GRACE and (2) peace', 1],
 #   ['1. Came to Jerusalem 2. Besieged it (Jerusalem)', 1],
 #   ['1) Jehoiakim, king of Judah 2) some of the articles of the house of God', 2],
 #   ['1) changes time 2) seasons 3) kings 4) up kings 5)  wise 6) knowledge', 6],
-#   ['1) iron 2)clay 3) bronze 4) silver 5.gold', 1],
+#   ['1) iron 2)clay 3) BRONZE 4) silver 5.gold', 1],
 #   ['You (Nebuchadnezzar)', 1],
 #   ['1) the plain of Dura 2)the province of Babylon', 2],
-#   ['A watcher, a holy one', 2],
+#   ['A watcher, a HOLY ONE', 2],
 #   ['Drive you; dwell beasts; eat grass; be wet', 1]
-# ]), columns=['answer', 'points'])
+# ]), columns=['question', 'points'])
 
+# df['question'] = df['question'].str.replace(capsRe, lambda match: match.groups()[0].lower(), regex=True)
+
+# print(df['question'])
