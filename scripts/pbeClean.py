@@ -3,7 +3,7 @@ import numpy as np
 import re
 
 dataSrc = '../data/pbe/raw'
-dataDest = '../data/pbe/clean/allQuestions.csv'
+dataDest = '../data/pbe/clean/refQuestions.csv'
 
 # get data, remove columns, set proper dtypes
 # ['refQuestion', 'answer', 'categories', 'source', 'quality']

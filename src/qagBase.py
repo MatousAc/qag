@@ -9,6 +9,7 @@ class QAGBase:
     if (self.genCf['ignoreWarnings'] == 'True'): self.warningIgnore()
     self.quiet = self.genCf['quiet'] == 'True'
     self.trainFor = self.genCf["trainFor"]
+    self.sep = self.cp['dataFormatter']['sepTok']
     if dataFormatter: self.dataFormatter = dataFormatter
     self.configure()
   

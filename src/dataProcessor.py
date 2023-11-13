@@ -1,4 +1,4 @@
-import sys, pandas as pd, random
+import sys, pandas as pd, random, csv
 from datasets import load_dataset, Dataset
 from qagBase import QAGBase
 
@@ -10,6 +10,34 @@ class DataProcessor(QAGBase):
     
     bibleDataSource = '../data/bible/nkjv.csv'
     self.nkjv = pd.read_csv(bibleDataSource)
+
+  # creates an object representing the NKJV Bible
+  # should become a member in construction
+  def getNkjvInfo(self):
+    filePath = f'{self.dpCf["qagData"]}/bible/nkjv.csv'
+    nkjvContent = {}
+
+    with open(filePath, 'r', encoding='utf-8') as csvFile:
+      reader = csv.reader(csvFile)
+      next(reader)  # Skip header row
+
+      for row in reader:
+        book, chapter, verse, text = row
+        chapter = int(chapter)
+        verse = int(verse)
+
+        if book not in nkjvContent:
+          nkjvContent[book] = {'numChapters': 0}
+
+        if chapter > nkjvContent[book]['numChapters']:
+          nkjvContent[book]['numChapters'] = chapter
+
+        if chapter not in nkjvContent[book]:
+          nkjvContent[book][chapter] = 0
+
+        nkjvContent[book][chapter] = max(nkjvContent[book][chapter], verse)
+
+    return nkjvContent
 
   def qgToAE(self):
     dataset = load_dataset(self.source)
@@ -28,7 +56,22 @@ class DataProcessor(QAGBase):
     dataset.to_json(f"{self.destination}/data.jsonl")
     
   def pbeContextualize(self):
-    print(f'Ephesians 2:10 - {self.getVerse("Ephesians", 2, 10)}')
+    nkjvContent = self.getNkjvInfo()
+    print(nkjvContent['Genesis']['numChapters'])
+    print(nkjvContent['Genesis'][2])
+
+    data = pd.read_csv(f'{self.source}/refQuestions.csv')
+    data['sentence'] = ''; data['paragraph'] = ''; data['paragraph_question'] = ''; data['paragraph_sentence'] = ''
+
+    print(data.head())
+    # data['sentence'] = data.apply(lambda row: self.getVerse(row['book'], row['chapter'], row['verse'], endVerse=row['endVerse']), axis=1)
+    print(len(data.index))
+    for i in range(len(data.index)):
+      row = data.iloc[i]
+
+    #   print(f'{row["book"]} {row["chapter"]}:{row["verse"]}: {self.getVerse(row["book"], row["chapter"], row["verse"], endVerse=row["endVerse"])}')
+    
+    print(data.head())
 
 
   def getVerse(self, book, startChapter, startVerse, endChapter = None, endVerse = None):
@@ -57,10 +100,10 @@ class DataProcessor(QAGBase):
 
 if __name__ == '__main__':
   dp = DataProcessor()
-  match sys.argv[1]:
-    case 'randomVerse' | '-randomVerse': print(dp.getRandomVerse())
-    case 'qgToAE' | '-qgToAE': dp.qgToAE()
-    case 'pbeContextualize' | '-pbeContextualize': dp.pbeContextualize()
+  match sys.argv[1].replace('-', ''):
+    case 'randomVerse': print(dp.getRandomVerse())
+    case 'qgToAE': dp.qgToAE()
+    case 'pbeContextualize': dp.pbeContextualize()
     case 'none' | _: pass
 
 
