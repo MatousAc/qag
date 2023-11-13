@@ -25,3 +25,4 @@ baseModels/
 SQuAD/
 customData/
 data/
+!data/bible/nkjv.csv
