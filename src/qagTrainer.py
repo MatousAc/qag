@@ -78,9 +78,9 @@ class QAGTrainer(QAGBase):
     return metrics
 
   def computeMetric(self, evalPred):
-    # we receive a tupe of predictions and references.
+    # we receive a tuple of predictions and references.
     # these should be triply-nested lists of ints
-    print(f'Evaluating with Gooogle Bleu')
+    print(f'Evaluating with Google Bleu')
     preds, labels = evalPred
     
     # we have to decode our predictions for most custom metrics

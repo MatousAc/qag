@@ -1,4 +1,5 @@
 from configparser import ConfigParser, ExtendedInterpolation
+import sys
 
 class QAGBase:
   def __init__(self, configFilePath = 'qag.ini', dataFormatter = None):
@@ -22,3 +23,13 @@ class QAGBase:
     warnings.filterwarnings('ignore', category = FutureWarning)
     import os
     os.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = 'true'
+
+  # from: https://stackoverflow.com/a/63136181/14062356
+  def printProgressBar(self, value, maximum = 100, label = 'progress', width = 50):
+      j = value / maximum
+      sys.stdout.write('\r')
+      bar = '█' * int(width * j)
+      bar = bar + '-' * int(width * (1-j))
+
+      sys.stdout.write(f"{label.ljust(10)} | [{bar:{width}s}] {int(100 * j)}% ")
+      sys.stdout.flush()

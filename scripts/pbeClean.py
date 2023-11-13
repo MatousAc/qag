@@ -1,6 +1,4 @@
-import pandas as pd
-import numpy as np
-import re
+import pandas as pd, numpy as np, re, csv
 
 dataSrc = '../data/pbe/raw'
 dataDest = '../data/pbe/clean/refQuestions.csv'
@@ -16,8 +14,8 @@ bab = bab.drop(columns=['id', 'type', 'endBook', 'dateCreated', 'endChapter']) #
 bab['source'] = 'Babienco'; bab['quality'] = np.nan
 
 # 1. trim whitespace, rm consecutive spaces
-lsb = lsb.replace(r"^ +| +$", r"", regex=True).replace(r'\s+', ' ', regex=True)
-bab = bab.replace(r"^ +| +$", r"", regex=True).replace(r'\s+', ' ', regex=True)
+lsb = lsb.replace(r'^ +| +$', r'', regex=True).replace(r'\s+', ' ', regex=True)
+bab = bab.replace(r'^ +| +$', r'', regex=True).replace(r'\s+', ' ', regex=True)
 # 2. basic deduplicate on reference, question, and answer
 lsb = lsb.drop_duplicates(subset=['refQuestion', 'answer'])
 bab = bab.drop_duplicates(subset=['question', 'answer', 'book', 'chapter', 'verse', 'endVerse'])
@@ -102,7 +100,9 @@ data['answer'] = data['answer'].str.replace(r'^"+|"+$|\.+$', r"", regex=True)
 data['question'] = data['question'].str.replace(r'\s*\(?Be Specific\)?\s*/i', r"", regex=True)
 # 14. transform "v #" to "verse #"
 data['question'] = data['question'].str.replace(r'v\s(\d+)', lambda match: f'verse {match.groups()[0]}', regex=True)
-# 15. remove any rows with a point-value greater than 15
+# 15. replace "None" with "none" so that we can keep these values next time we load them as csv
+data['answer'] = data['answer'].str.replace(r'^None$', r'^none$', regex = True)
+# 15. remove any rows with a point-value greater than 13
 data = data[data['points'] < 13]
 # 16. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
 data = data.drop_duplicates(subset=['book', 'chapter', 'verse', 'question', 'answer'])

@@ -10,9 +10,10 @@ class DataProcessor(QAGBase):
     
     bibleDataSource = '../data/bible/nkjv.csv'
     self.nkjv = pd.read_csv(bibleDataSource)
+    self.nkjvInfo = self.getNkjvInfo()
+
 
   # creates an object representing the NKJV Bible
-  # should become a member in construction
   def getNkjvInfo(self):
     filePath = f'{self.dpCf["qagData"]}/bible/nkjv.csv'
     nkjvContent = {}
@@ -56,47 +57,57 @@ class DataProcessor(QAGBase):
     dataset.to_json(f"{self.destination}/data.jsonl")
     
   def pbeContextualize(self):
-    nkjvContent = self.getNkjvInfo()
-    print(nkjvContent['Genesis']['numChapters'])
-    print(nkjvContent['Genesis'][2])
-
     data = pd.read_csv(f'{self.source}/refQuestions.csv')
     data['sentence'] = ''; data['paragraph'] = ''; data['paragraph_question'] = ''; data['paragraph_sentence'] = ''
+    if not self.quiet: print(f'dataset length: {len(data.index)}')
 
-    print(data.head())
-    # data['sentence'] = data.apply(lambda row: self.getVerse(row['book'], row['chapter'], row['verse'], endVerse=row['endVerse']), axis=1)
-    print(len(data.index))
-    for i in range(len(data.index)):
-      row = data.iloc[i]
+    maximum = len(data.index)
+    for i, row in data.iterrows():
+      # show progress
+      self.printProgressBar(i, maximum = maximum, label = 'context', width = 75)
+      # get verse pieces
+      book = row['book']; chapter = row['chapter']; verse = row['verse']; end = row['endVerse']
+      previousNum = verse - 1 if verse > 1 else None
+      followingNum = end + 1 if self.nkjvInfo[book][chapter] > end else None
+      previous = self.getVerse(book, chapter, previousNum) + ' ' if previousNum else ''
+      sentence = self.getVerse(book, chapter, verse, endVerse=end)
+      following = ' ' + self.getVerse(book, chapter, followingNum) if followingNum else ''
+      # assign pieces
+      data.at[i, 'sentence'] = sentence
+      data.at[i, 'paragraph'] = previous + sentence + following
+      data.at[i, 'paragraph_question'] = f'question: {row["question"]}, context: {row["paragraph"]}'
+      data.at[i, 'paragraph_sentence'] = f'{previous}<hl> {sentence} <hl>{following}'
+    self.printProgressBar(maximum, maximum = maximum, label = 'context', width = 75) # done
+    print('\n')
+    # reorganize columns
+    cols = ['answer', 'paragraph_question', 'question', 'sentence', 'paragraph', 'paragraph_sentence', 'points', 'source', 'quality']
+    data = data[cols]
+    if not self.quiet: print(data.head())
+    # drop rows that we can't get references for
+    data = data.dropna(subset=['paragraph_question', 'sentence', 'paragraph', 'paragraph_sentence'])
+    # save
+    data.to_csv(f'{self.destination}/contextQuestions.csv', index=False)
 
-    #   print(f'{row["book"]} {row["chapter"]}:{row["verse"]}: {self.getVerse(row["book"], row["chapter"], row["verse"], endVerse=row["endVerse"])}')
-    
-    print(data.head())
-
-
-  def getVerse(self, book, startChapter, startVerse, endChapter = None, endVerse = None):
-    # default to start positions
-    endChapter = endChapter if endChapter else startChapter
+  def getVerse(self, book, chapter, startVerse, endVerse = None):
+    # default to start verse
     endVerse = endVerse if endVerse else startVerse
 
-    text = ""
-    BookDf = self.nkjv[self.nkjv["Book"] == book]
-    for index, row in BookDf.iterrows():
-      chapter = row['ChapterNumber']
-      verse = row['VerseNumber']
-      if (chapter == startChapter and verse >= startVerse) or (chapter > startChapter):
-        if chapter == endChapter and verse > endVerse:
-          break
-        text += row['Verse'] + " "
-    return text
+    result = ''
+    for verseNumber in range(startVerse, endVerse + 1):
+      result += self.nkjv.loc[
+        (self.nkjv['verseNumber'] == verseNumber)
+        & (self.nkjv['book'] == book)
+        & (self.nkjv['chapterNumber'] == chapter)
+      , 'verse'].values[0]
+    return result
 
-  def getRandomVerse(self):
-    book = random.choice(self.nkjv['Book'].unique())
-    df = self.nkjv.loc[self.nkjv['Book'] == book]
-    chapter = random.choice(df['ChapterNumber'].unique())
-    df = df.loc[df['ChapterNumber'] == chapter]
-    verse = random.choice(df['VerseNumber'].unique())
-    return df.loc[df['VerseNumber'] == verse].values[0][-1]
+  def getRandomVerse(self): 
+    book = random.choice(self.nkjv['book'].unique())
+    df = self.nkjv.loc[self.nkjv['book'] == book]
+    chapter = random.choice(df['chapterNumber'].unique())
+    df = df.loc[df['chapterNumber'] == chapter]
+    verse = random.choice(df['verseNumber'].unique())
+    return df.loc[df['verseNumber'] == verse].values[0][-1]
 
 if __name__ == '__main__':
   dp = DataProcessor()
