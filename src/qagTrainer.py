@@ -164,7 +164,8 @@ class QAGTrainer(QAGBase):
   def addCustomTokens(self):
     specialTokens = [
       {'highlight_token': '<hl>'},
-      {"pad_token":"<pad>"}
+      {"pad_token":"<pad>"},
+      {"sep_token":"<sep>"},
     ]
     numAddedToks = self.tokenizer.add_special_tokens(specialTokens)
     if not self.quiet: print(f'Added {numAddedToks} tokens.')

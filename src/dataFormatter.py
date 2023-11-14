@@ -45,7 +45,6 @@ class DataFormatter(QAGBase):
 
     if not self.quiet: print(self.trainDataset[0])
 
-
   # data processing f(x)s
   def unpackedProcessing(self, examples):
     output_texts = []

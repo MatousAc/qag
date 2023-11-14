@@ -96,8 +96,8 @@ capsRe = r'\b([A-Z]{2,})\b'
 data['question'] = data['question'].str.replace(capsRe, lambda match: match.groups()[0].lower(), regex=True)
 # 12. remove surrounding quotes and periods
 data['answer'] = data['answer'].str.replace(r'^"+|"+$|\.+$', r"", regex=True)
-# 13. Remove Be Specific, any caps, w/ or without parentheses
-data['question'] = data['question'].str.replace(r'\s*\(?Be Specific\)?\s*/i', r"", regex=True)
+# 13. Remove Be Specific, any caps, w/ or without parentheses, periods && various misspellings
+data['question'] = data['question'].str.replace(r'\s*\(?be\sspe(cific)|(ific)|(cfic)|(cifc)\)?\.?\s*', r"", flags = re.IGNORECASE, regex=True)
 # 14. transform "v #" to "verse #"
 data['question'] = data['question'].str.replace(r'v\s(\d+)', lambda match: f'verse {match.groups()[0]}', regex=True)
 # 15. replace "None" with "none" so that we can keep these values next time we load them as csv
