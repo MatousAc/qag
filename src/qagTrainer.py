@@ -5,6 +5,8 @@ from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from peft import LoraConfig, PeftModel
 from qagBase import QAGBase
 from dataFormatter import DataFormatter
+from dataProcessor import DataProcessor
+from timeLogger import TimeLogger
 
 class QAGTrainer(QAGBase):
   def configure(self):
@@ -14,6 +16,7 @@ class QAGTrainer(QAGBase):
     self.mode = self.trainCf['mode']
     self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
     self.configureTraining()
+    self.timer = TimeLogger()
     
     fxStr = self.trainCf['metricFx']
     if fxStr == 'computeAccuracy': self.metricFx = None
@@ -121,7 +124,7 @@ class QAGTrainer(QAGBase):
       learning_rate = float(self.trainArgs['learningRate']),
       logging_steps = int(self.trainArgs['saveSteps']),
       max_steps = self.maxSteps,
-      logging_dir = self.paths['log'],
+      logging_dir = self.paths['output'] + '/logs',
       save_strategy = self.trainArgs['saveStrategy'],
       save_steps = min(int(self.trainArgs['saveSteps']), self.maxSteps),
       evaluation_strategy = self.trainArgs['evaluationStrategy'],
@@ -202,54 +205,47 @@ class QAGTrainer(QAGBase):
   def detokenize(self, tokens):
     with torch.no_grad():
       return self.tokenizer.decode(tokens, skip_special_tokens=True)
-
-  def runInference(self):
-    # must first loadModel()
-    loraLocation = f'{self.paths["output"]}/checkpoint-{self.maxSteps}'
-    self.fineTunedModel = PeftModel.from_pretrained(self.baseModel, loraLocation)
-
-    evalPrompt = self.dataFormatter.getEvalSample()
-    modelInput = self.tokenizer(evalPrompt, return_tensors='pt').to('cuda')
+    
+  # testing the models
+  def inference(self, model: AutoModelForCausalLM):
+    inferenceInput = self.dataFormatter.getInferenceInput(self.dp)
+    modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
     # print('Model input')
     # print(modelInput)
 
-    self.fineTunedModel.eval()
+    self.timer.play()
+    model.eval()
     with torch.no_grad():
-      tokens = self.fineTunedModel.generate(**modelInput, max_new_tokens=100)[0]
+      tokens = model.generate(**modelInput, max_new_tokens=100)[0]
       print(self.detokenize(tokens))
+    self.timer.pause()
     
-  # testing models we just trained
-  def testInference(self):
-    # must first loadModel()
-    loraLocation = f'{self.paths["output"]}/checkpoint-{self.maxSteps}'
-    self.fineTunedModel = PeftModel.from_pretrained(self.baseModel, loraLocation)
-
-    evalPrompt = self.dataFormatter.getEvalSample()
-    modelInput = self.tokenizer(evalPrompt, return_tensors='pt').to('cuda')
-    # print('Model input')
-    # print(modelInput)
-
-    self.fineTunedModel.eval()
-    with torch.no_grad():
-      tokens = self.fineTunedModel.generate(**modelInput, max_new_tokens=100)[0]
-      print(self.detokenize(tokens))
-    
-    print('##### End Inference Test #####')
+    print('~' * int(self.vw * 1.3))
   
-  def testInferenceLoop(self):
-    cmd = input('Enter to continue, anything else to quit.')
-    while not cmd:
-      self.testInference()
-      cmd = input()
+  def inferenceLoop(self, useBase = False):
+    model = self.baseModel
+    if not useBase:
+      loraLocation = f'{self.paths["output"]}/checkpoint-{self.maxSteps}'
+      model = PeftModel.from_pretrained(self.baseModel, loraLocation)
+      
+    print('\n' + ('~' * int(0.5 * self.vw)) + ' Testing Loop ' + ('~' * int(0.5 * self.vw)))
+    print('Ctrl+C to exit')
+    self.dp = DataProcessor()
+    try:
+      while True: self.inference(model)
+    except KeyboardInterrupt: print('\rClosing\n')
+    except: raise # rethrow
 
 
 if __name__ == '__main__':
   df = DataFormatter()
   trainer = QAGTrainer(dataFormatter=df)
+  # must first loadModel()
   trainer.loadModel()
   if len(sys.argv) == 1: sys.argv[1] = '-train'
   match sys.argv[1]:
-    case '-infer': trainer.testInferenceLoop()
+    case '-inferBase': trainer.inferenceLoop(useBase = True)
+    case '-infer': trainer.inferenceLoop()
     case '-train' | _:
       trainer.train()
-      trainer.testInference()
+      trainer.inference()

@@ -1,3 +1,4 @@
+import os
 from configparser import ConfigParser, ExtendedInterpolation
 
 class QAGBase:
@@ -9,6 +10,8 @@ class QAGBase:
     if (self.genCf['ignoreWarnings'] == 'True'): self.warningIgnore()
     self.quiet = self.genCf['quiet'] == 'True'
     self.trainFor = self.genCf["trainFor"]
+    self.modelType = self.genCf["modelType"]
+    self.vw = os.get_terminal_size().lines
     if dataFormatter: self.dataFormatter = dataFormatter
     self.configure()
   
