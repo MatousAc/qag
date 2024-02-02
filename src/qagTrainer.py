@@ -177,7 +177,7 @@ class QAGTrainer(QAGBase):
     collator = None # by passing None, we use the default collator
     if (self.trainCf['optimizeCompletion'] == 'True'):
       collator = DataCollatorForCompletionOnlyLM(
-        self.dataFormatter.respTemple, tokenizer=self.tokenizer
+        self.dataFormatter.respKey, tokenizer=self.tokenizer
       )
     
     # use the SFTTrainer from HuggingFace's trl library
@@ -242,10 +242,11 @@ if __name__ == '__main__':
   trainer = QAGTrainer(dataFormatter=df)
   # must first loadModel()
   trainer.loadModel()
-  if len(sys.argv) == 1: sys.argv[1] = '-train'
-  match sys.argv[1]:
+  if len(sys.argv) == 1: cmd = '-train'
+  else: cmd = sys.argv[1]
+  match cmd:
     case '-inferBase': trainer.inferenceLoop(useBase = True)
     case '-infer': trainer.inferenceLoop()
     case '-train' | _:
       trainer.train()
-      trainer.inference()
+      trainer.inferenceLoop()

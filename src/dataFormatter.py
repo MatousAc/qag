@@ -6,6 +6,7 @@ class DataFormatter(QAGBase):
     self.dfCf = self.cp['dataFormatter']
     self.delim = self.dfCf['delim']
     self.respTemple = self.dfCf[f'{self.modelType}RespTemple{self.trainFor}']
+    self.respKey = self.dfCf[f'{self.modelType}RespKey{self.trainFor}']
     self.fxMux()
     self.load()
   

@@ -12,8 +12,12 @@ class DataProcessor(QAGBase):
     self.nkjv = pd.read_csv(bibleDataSource)
 
   def qgToAE(self):
-    dataset = load_dataset(self.source)
-    df = dataset['train'].to_pandas()
+    # load json of csv
+    if ".csv" not in self.source:
+      dataset = load_dataset(self.source)
+      df = dataset['train'].to_pandas()
+    else: df = pd.read_csv(self.source)
+
     df = df[['answer', 'question','sentence']]
     grouped = df.groupby('sentence').agg({
       'answer': lambda x: ' <sep> '.join(set(x)), 
@@ -26,7 +30,6 @@ class DataProcessor(QAGBase):
     dataset = Dataset.from_pandas(grouped.reset_index(drop=True))
     print(dataset)
     dataset.to_json(f"{self.destination}/data.jsonl")
-    
 
   def getVerse(self, book, startChapter, startVerse, endChapter = None, endVerse = None):
     # default to start positions
