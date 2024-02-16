@@ -81,9 +81,9 @@ class QAGTrainer(QAGBase):
     return metrics
 
   def computeMetric(self, evalPred):
-    # we receive a tupe of predictions and references.
+    # we receive a tuple of predictions and references.
     # these should be triply-nested lists of ints
-    print(f'Evaluating with Gooogle Bleu')
+    print(f'Evaluating with Google Bleu')
     preds, labels = evalPred
     
     # we have to decode our predictions for most custom metrics
@@ -167,7 +167,8 @@ class QAGTrainer(QAGBase):
   def addCustomTokens(self):
     specialTokens = [
       {'highlight_token': '<hl>'},
-      {"pad_token":"<pad>"}
+      {"pad_token":"<pad>"},
+      {"sep_token":"<sep>"},
     ]
     numAddedToks = self.tokenizer.add_special_tokens(specialTokens)
     if not self.quiet: print(f'Added {numAddedToks} tokens.')

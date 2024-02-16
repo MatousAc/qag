@@ -1,5 +1,4 @@
 *.zip
-!research/onnxResearch.zip
 pbe_aqg_potsawee_t5/
 transformers-js*
 onnxModel/onnx_*
@@ -26,3 +25,4 @@ baseModels/
 SQuAD/
 customData/
 data/
+!nkjv.csv
