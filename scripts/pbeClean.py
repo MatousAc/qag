@@ -1,3 +1,5 @@
+# to start out, place the huge 'Reformatted Bible Questions.xlsx'
+# && Babienco's 'bible-questions.csv' in /data/pbe/raw
 import pandas as pd, numpy as np, re, csv
 
 dataSrc = '../data/pbe/raw'

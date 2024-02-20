@@ -4,23 +4,20 @@ from qagBase import QAGBase
 
 class DataProcessor(QAGBase):
   def configure(self):
-    self.dpCf = self.cp['dataProcessor']
-    self.source = self.dpCf['dpSource']
-    self.destination = self.dpCf['dpDest']
+    self.source = self.paths['dpSource']
+    self.destination = self.paths['dpDest']
     
-    bibleDataSource = '../data/bible/nkjv.csv'
-    self.nkjv = pd.read_csv(bibleDataSource)
+    self.nkjv = pd.read_csv(self.paths['dpBibleSrc'])
     self.nkjvInfo = self.getNkjvInfo()
 
 
   # creates an object representing the NKJV Bible
   def getNkjvInfo(self):
-    filePath = f'{self.dpCf["qagData"]}/bible/nkjv.csv'
     nkjvContent = {}
 
-    with open(filePath, 'r', encoding='utf-8') as csvFile:
+    with open(self.paths['dpBibleSrc'], 'r', encoding='utf-8') as csvFile:
       reader = csv.reader(csvFile)
-      next(reader)  # Skip header row
+      next(reader)  # skip header row
 
       for row in reader:
         book, chapter, verse, text = row

@@ -214,14 +214,14 @@ class QAGTrainer(QAGBase):
     # print('Model input')
     # print(modelInput)
 
-    self.timer.play()
+    self.timer.start()
     model.eval()
     with torch.no_grad():
       tokens = model.generate(**modelInput, max_new_tokens=100)[0]
       print(self.detokenize(tokens))
-    self.timer.pause()
+    self.timer.stop()
     
-    print('~' * int(self.vw * 1.3))
+    print('~' * self.vw)
   
   def inferenceLoop(self, useBase = False):
     model = self.baseModel
@@ -229,7 +229,7 @@ class QAGTrainer(QAGBase):
       loraLocation = f'{self.paths["output"]}/checkpoint-{self.maxSteps}'
       model = PeftModel.from_pretrained(self.baseModel, loraLocation)
       
-    print('\n' + ('~' * int(0.5 * self.vw)) + ' Testing Loop ' + ('~' * int(0.5 * self.vw)))
+    self.printHeader('Testing Loop')
     print('Ctrl+C to exit')
     self.dp = DataProcessor()
     try:

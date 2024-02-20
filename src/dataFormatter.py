@@ -104,6 +104,6 @@ class DataFormatter(QAGBase):
     return templ.strip() #template.replace('<context>', dp.getRandomVerse())
 
 if __name__ == '__main__':
-  print('Testing DataFormatter . . .')
   df = DataFormatter()
+  df.printHeader('Testing DataFormatter')
   print(df.getInputSample())
