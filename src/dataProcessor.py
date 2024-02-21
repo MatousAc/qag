@@ -1,4 +1,4 @@
-import sys, pandas as pd, random, csv, json
+import pandas as pd, sys, random, csv, json, string, re
 from datasets import load_dataset, Dataset
 from qagBase import QAGBase
 
@@ -78,17 +78,48 @@ class DataProcessor(QAGBase):
     else: df = pd.read_csv(self.source)
 
     df = df[['answer', 'question','sentence']]
+    # group answers by verse and remove near duplicates
+    def rmNearDup(series):
+      def normAns(text):
+        text = text.lower()
+        text = re.sub(r'\((\d{1,3})\) ', '', text) # point marker removal
+        text = text.translate(str.maketrans("", "", string.punctuation))
+        return text
+      
+      def areSimilar(text1, text2):
+        # Split texts into words
+        words1 = set(normAns(text1).split())
+        words2 = set(normAns(text2).split())
+        len1 = len(words1); len2 = len(words2)
+        maxLen = max(len1, len2); minLen = min(len1, len2)
+        # answers are not similar if they are more than 3 words apart
+        # or if the difference is larger than 40% of the smaller answer
+        if abs(len1 - len2) > max(int(minLen * 0.4), 3): return False
+        # answers are similar if they intersect 70% of the time or only
+        # differ by one word for smaller answers
+        threshold = max(maxLen - 1, 1) if maxLen < 5 else int(0.7 * maxLen)
+        return len(words1.intersection(words2)) >= threshold
+
+      # rm near or full duplicates
+      uniqueElems = set()
+      for elem in series:
+          isDuplicate = any(areSimilar(elem, uniqueElem) for uniqueElem in uniqueElems)
+          if not isDuplicate: uniqueElems.add(elem)
+      return uniqueElems
+
+    sep = ' <sep> '
     grouped = df.groupby('sentence').agg({
-      'answer': lambda x: ' <sep> '.join(set(x)), 
-      'question': 'count'
+      'answer': lambda x: sep.join(rmNearDup(x))
     }).reset_index()
+    grouped['count'] = grouped['answer'].apply(lambda x: x.count(sep) + 1)
     grouped.rename(columns={'question': 'count'}, inplace=True)
-    if not self.quiet: print(f'Mean Q&A per context: {grouped["count"].mean()}')
-    if not self.quiet: print(grouped.head())
-    if not self.quiet: print(len(grouped))
+    grouped = grouped[grouped['count'] > 2] # train model to produce 3+ ans
     dataset = Dataset.from_pandas(grouped.reset_index(drop=True))
-    if not self.quiet: print(dataset)
-    dataset.to_json(f'{self.destination}/data.json')
+    if not self.quiet: 
+      print(grouped.head())
+      print(len(dataset))
+      print(f'Mean Q&A per context: {round(grouped["count"].mean(), 2)}')
+    dataset.to_json(self.destination)
     
   def csvToJsonl(self):
     pd.read_csv(self.source).to_json(self.destination, orient='records', lines = True)

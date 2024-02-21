@@ -26,12 +26,6 @@ class DataFormatter(QAGBase):
     if not self.quiet: print('Loading Data . . .')
     dsDict = load_dataset(self.paths['data'])
     
-    if 'AE' in self.paths['data']:
-      for split, dataset in dsDict.items():
-        dsDict[split] = dataset.filter(
-          lambda row: row['count'] >= int(self.dfCf['aeMinAnswerCount'])
-        )
-    
     if len(dsDict) == 1:
       if not self.quiet: print('Splitting data . . .')
       key = [split for split in dsDict][0]

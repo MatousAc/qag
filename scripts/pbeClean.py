@@ -108,6 +108,9 @@ data['answer'] = data['answer'].str.replace(r'^None$', r'^none$', regex = True)
 data = data[data['points'] < 13]
 # 16. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
 data = data.drop_duplicates(subset=['book', 'chapter', 'verse', 'question', 'answer'])
+# 17. put back apostrophes that somehow got lost
+data['question'] = data['question'].str.replace('�', "'")
+data['answer'] = data['answer'].str.replace('�', "'")
 
 # finally save
 print(f'Saving this format to {dataDest}')

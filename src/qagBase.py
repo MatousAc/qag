@@ -1,6 +1,5 @@
-import os
+import os, sys
 from configparser import ConfigParser, ExtendedInterpolation
-import sys
 
 class QAGBase:
   def __init__(self, configFilePath = '/src/qag.ini', dataFormatter = None):
@@ -24,7 +23,8 @@ class QAGBase:
     self.trainFor = self.genCf["trainFor"]
     self.modelType = self.genCf["modelType"]
     # get terminal size for prettified output
-    self.vw = os.get_terminal_size().columns
+    try: self.vw = os.get_terminal_size().columns
+    except OSError: self.vw = 100
     if dataFormatter: self.dataFormatter = dataFormatter
     self.configure()
 

@@ -1,5 +1,5 @@
 # import libraries we need
-import sys, torch, numpy as np, evaluate
+import os, sys, torch, numpy as np, evaluate
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, TrainingArguments
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from peft import LoraConfig, PeftModel
@@ -17,7 +17,14 @@ class QAGTrainer(QAGBase):
     self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
     self.configureTraining()
     self.timer = TimeLogger()
+
+    # increment output folder number
+    # parent = self.paths['output'][:self.paths['output'].find(self.mode)] + self.mode
+    # subfolders = [f.path for f in os.scandir(parent) if f.is_dir()]
+    # lastModelNumber = int(subfolders[-1][-2:])
+    # self.paths['output'] += str(lastModelNumber + 1).zfill(2)
     
+    # assign metric functions
     fxStr = self.trainCf['metricFx']
     if fxStr == 'computeAccuracy': self.metricFx = None
     else: self.metricFx = evaluate.load(fxStr)
@@ -198,10 +205,11 @@ class QAGTrainer(QAGBase):
         # reduce logits into token_ids for custom metrics
         preprocess_logits_for_metrics = None if self.metricFx == None else self.preprocessLogits
       )
-  
     # pass in resume_from_checkpoint=True to resume from a checkpoint
     # click on wandb.ai link for training info
     trainer.train()
+    self.printHeader('Training Success')
+    print(f'Model saved to {self.paths["output"]}')
 
   def detokenize(self, tokens):
     with torch.no_grad():
