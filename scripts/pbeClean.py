@@ -59,7 +59,9 @@ data['verse'] = data['verse'].astype(np.int64)
 data['endVerse'] = data['endVerse'].astype(np.int64)
 data['points'] = data['points'].astype(np.int64)
 data['answer'] = data['answer'].astype(str)
-# 10. format all numbered answers the same: (#)
+# 10. drop rows where endVerse was parsed as larger than start verse
+data = data[data['endVerse'] >= data['verse']]
+# 11. format all numbered answers the same: (#)
 def formatAnswers(answer: str, allegedPoints: int):
   # define f(x) to process each number
   def processAnswer(match):
@@ -93,35 +95,34 @@ data['answer'] = data.apply(lambda row: formatAnswers(row['answer'], row['points
 data['points'] = data['answer'].apply(countPoints)
 data['2To3'] = (data['points'] > 1) & (data['points'] <= 3)
 data['bigPoints'] = data['points'] > 3
-# 11. uncapitalize unnecessarily capitalized words like "WHY", "WHAT", "WHICH", "NOT", "FROM", "TRUE", "FALSE"
+# 12. uncapitalize unnecessarily capitalized words like "WHY", "WHAT", "WHICH", "NOT", "FROM", "TRUE", "FALSE"
 capsRe = r'\b([A-Z]{2,})\b'
 data['question'] = data['question'].str.replace(capsRe, lambda match: match.groups()[0].lower(), regex=True)
 data['answer'] = data['answer'].str.replace(capsRe, lambda match: match.groups()[0].lower(), regex=True)
-# 12. Remove Be Specific, any caps, w/ or without parentheses, periods && various misspellingsc
+# 13. Remove Be Specific, any caps, w/ or without parentheses, periods && various misspellingsc
 data['question'] = data['question'].str.replace(r'\s*\(?be\sspe(cific)|(ific)|(cfic)|(cifc)\)?\.?\s*', r'', flags = re.IGNORECASE, regex=True)
-# 13. transform "v #" to "verse #"
+# 14. transform "v #" to "verse #"
 data['question'] = data['question'].str.replace(r'v\s(\d+)', lambda match: f'verse {match.groups()[0]}', regex=True)
-# 14. remove any rows with a point-value greater than 13
+# 15. remove any rows with a point-value greater than 13
 data = data[data['points'] < 13]
-# 15. put back apostrophes that somehow got lost
+# 16. put back apostrophes that somehow got lost
 data['question'] = data['question'].str.replace('�', "'")
 data['answer'] = data['answer'].str.replace('�', "'")
-# 16. remove all occurences of "Do not confuse with verse #" in question and answer columns
+# 17. remove all occurences of "Do not confuse with verse #" in question and answer columns
 data['question'] = data['question'].str.replace(r'\(?do not confuse .*\)?\.?', r'', regex=True, flags=re.IGNORECASE)
 data['answer'] = data['answer'].str.replace(r'\(?do not confuse .*\)?\.?', r'', regex=True, flags=re.IGNORECASE)
-# 17. replace special/double characters
+# 18. replace special/double characters
 data['answer'] = data['answer'].str.replace(r'“|”', r'"', regex=True).str.replace(r"‘|’", r"'", regex=True)
 data['question'] = data['question'].str.replace(r'“|”', r'"', regex=True).str.replace(r"‘|’", r"'", regex=True)
-# 18. remove surrounding quotes and periods
+# 19. remove surrounding quotes and periods
 data['answer'] = data['answer'].str.replace(r'^"(.+)"$', r'\1', regex=True).str.replace(r"^'(.+)'$", r"\1", regex=True)
 data['question'] = data['question'].str.replace(r'^"(.+)"$', r'\1', regex=True).str.replace(r"^'(.+)'$", r"\1", regex=True)
-# 19. final trimming and stripping
-# data['question'] = data['question'].str.removesuffix('.)')
+# 20. final trimming and stripping
 data['answer'] = data['answer'].str.strip().str.strip('.')
 data['question'] = data['question'].str.strip()
-# 20. replace "None" with "none" so that we can keep these values next time we load them as csv
+# 21. replace "None" with "none" so that we can keep these values next time we load them as csv
 data['answer'] = data['answer'].str.replace(r'^None$', r'^none$', regex = True)
-# 21. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
+# 22. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
 data = data.drop_duplicates(subset=['book', 'chapter', 'verse', 'question', 'answer'])
 
 

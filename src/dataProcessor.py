@@ -45,7 +45,7 @@ class DataProcessor(QAGBase):
     maximum = len(data.index)
     for i, row in data.iterrows():
       # show progress
-      self.printProgressBar(i, maximum = maximum, label = 'context', width = 75)
+      self.printProgressBar(i, maximum = maximum, label = 'context')
       # get verse pieces
       book = row['book']; chapter = row['chapter']; verse = row['verse']; end = row['endVerse']
       previousNum = verse - 1 if verse > 1 else None
@@ -58,7 +58,7 @@ class DataProcessor(QAGBase):
       data.at[i, 'paragraph'] = previous + sentence + following
       data.at[i, 'paragraph_question'] = f'question: {row["question"]}, context: {previous + sentence + following}'
       data.at[i, 'paragraph_sentence'] = f'{previous}<hl> {sentence} <hl>{following}'
-    self.printProgressBar(maximum, maximum = maximum, label = 'context', width = 75) # done
+    self.printProgressBar(maximum, maximum = maximum, label = 'context') # done
     print('\n')
     # reorganize columns
     cols = ['answer', 'paragraph_question', 'question', 'sentence', 'paragraph', 'paragraph_sentence', 'points', 'source', 'quality']
@@ -66,6 +66,8 @@ class DataProcessor(QAGBase):
     if not self.quiet: print(data.head())
     # drop rows that we can't get references for
     data = data.dropna(subset=['paragraph_question', 'sentence', 'paragraph', 'paragraph_sentence'])
+    # drop rows that have sentences w/ more than 150 words
+    data = data[data["sentence"].apply(lambda x: len(x.split()) <= 150)]
     # save
     data.to_csv(self.destination, index=False)
   
@@ -134,6 +136,8 @@ class DataProcessor(QAGBase):
   def getVerse(self, book, chapter, startVerse, endVerse = None):
     # default to start verse
     endVerse = endVerse if endVerse else startVerse
+    if endVerse < startVerse:
+      print('Warning: endVerse is less than startVerse.')
 
     result = ''
     for verseNumber in range(startVerse, endVerse + 1):

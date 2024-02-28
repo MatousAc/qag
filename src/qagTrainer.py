@@ -1,5 +1,5 @@
 # import libraries we need
-import sys, torch, numpy as np, evaluate
+import os, sys, torch, numpy as np, evaluate
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, TrainingArguments
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from peft import LoraConfig, PeftModel
@@ -14,6 +14,11 @@ class QAGTrainer(QAGBase):
     self.trainArgs = self.cp['trainArgs']
     self.trainCf = self.cp['qagTrainer']
     self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
+    
+    # configure wandb naming
+    os.environ["WANDB_PROJECT"] = self.trainFor
+    self.runName = os.path.split(self.outputDir)[1] # run name = output folder
+    
     self.configureTraining()
     self.timer = TimeLogger(self.mode)
 
@@ -126,6 +131,7 @@ class QAGTrainer(QAGBase):
       eval_steps = saveAndEvalSteps,
       # SFTTrainer auto reports to wandb if installed. put 'none' below to turn off
       report_to = 'none' if self.mode == 'test' else 'wandb',
+      run_name=self.runName,
       eval_accumulation_steps = int(self.trainArgs['evalAccumulationSteps']),
       save_total_limit = int(self.trainArgs['saveTotalLimit']),
       load_best_model_at_end = self.trainArgs['loadBestModelAtEnd'] == 'True',
