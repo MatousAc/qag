@@ -41,7 +41,7 @@ for cat in cats:
   lsb[cat] = lsb['categories'].str.contains(cat.lower()) == True
   bab[cat] = False
 # 7. extract reference "according to..." && capitalize question
-refRe = r'\s*According to (?P<book>(?:\d\s)?[a-zA-Z]+)\s(?P<chapter>\d+):(?P<verse>\d+)(?:[-,]?(?P<endVerse>\d+))?,?\s*'
+refRe = r'\s*According to (?P<book>(?:\d\s)?[a-zA-Z]+)\s(?P<chapter>\d+):(?P<verse>\d+)(?:[-,]?[ ]?(?P<endVerse>\d+))?,?\s*'
 newCols = lsb['refQuestion'].str.extract(refRe, flags=re.IGNORECASE)
 lsb['question'] = lsb['refQuestion'].str.replace(refRe, '', flags=re.IGNORECASE, regex=True)
 lsb['question'] = lsb['question'].str.slice(stop=1).str.capitalize() + lsb['question'].str.slice(start=1)
@@ -84,7 +84,7 @@ def formatAnswers(answer: str, allegedPoints: int):
         currentNumber += 1
       answer = ' '.join(res)
   return answer
-  
+
 def countPoints(answer: str):
   numRe = r'\((\d+)\)'
   return max(len(re.findall(numRe, answer)), 1)
@@ -93,30 +93,41 @@ data['answer'] = data.apply(lambda row: formatAnswers(row['answer'], row['points
 data['points'] = data['answer'].apply(countPoints)
 data['2To3'] = (data['points'] > 1) & (data['points'] <= 3)
 data['bigPoints'] = data['points'] > 3
-# 11. uncapitalize unnecessarily capitalized words like "WHY", "WHAT", "WHICH", "NOT", "FROM"
+# 11. uncapitalize unnecessarily capitalized words like "WHY", "WHAT", "WHICH", "NOT", "FROM", "TRUE", "FALSE"
 capsRe = r'\b([A-Z]{2,})\b'
 data['question'] = data['question'].str.replace(capsRe, lambda match: match.groups()[0].lower(), regex=True)
-# 12. remove surrounding quotes and periods
-data['answer'] = data['answer'].str.replace(r'^"+|"+$|\.+$', r"", regex=True)
-# 13. Remove Be Specific, any caps, w/ or without parentheses, periods && various misspellings
-data['question'] = data['question'].str.replace(r'\s*\(?be\sspe(cific)|(ific)|(cfic)|(cifc)\)?\.?\s*', r"", flags = re.IGNORECASE, regex=True)
-# 14. transform "v #" to "verse #"
+data['answer'] = data['answer'].str.replace(capsRe, lambda match: match.groups()[0].lower(), regex=True)
+# 12. Remove Be Specific, any caps, w/ or without parentheses, periods && various misspellingsc
+data['question'] = data['question'].str.replace(r'\s*\(?be\sspe(cific)|(ific)|(cfic)|(cifc)\)?\.?\s*', r'', flags = re.IGNORECASE, regex=True)
+# 13. transform "v #" to "verse #"
 data['question'] = data['question'].str.replace(r'v\s(\d+)', lambda match: f'verse {match.groups()[0]}', regex=True)
-# 15. replace "None" with "none" so that we can keep these values next time we load them as csv
+# 14. replace "None" with "none" so that we can keep these values next time we load them as csv
 data['answer'] = data['answer'].str.replace(r'^None$', r'^none$', regex = True)
 # 15. remove any rows with a point-value greater than 13
 data = data[data['points'] < 13]
-# 16. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
-data = data.drop_duplicates(subset=['book', 'chapter', 'verse', 'question', 'answer'])
-# 17. put back apostrophes that somehow got lost
+# 16. put back apostrophes that somehow got lost
 data['question'] = data['question'].str.replace('�', "'")
 data['answer'] = data['answer'].str.replace('�', "'")
+# 17. remove all occurences of "Do not confuse with verse #" in question and answer columns
+data['question'] = data['question'].str.replace(r'\(?do not confuse .*\)?\.?', r'', regex=True, flags=re.IGNORECASE)
+data['answer'] = data['answer'].str.replace(r'\(?do not confuse .*\)?\.?', r'', regex=True, flags=re.IGNORECASE)
+# 18. replace special/double characters
+data['answer'] = data['answer'].str.replace(r'“|”', r'"', regex=True).str.replace(r"‘|’", r"'", regex=True)
+data['question'] = data['question'].str.replace(r'“|”', r'"', regex=True).str.replace(r"‘|’", r"'", regex=True)
+# 19. remove surrounding quotes and periods
+data['answer'] = data['answer'].str.replace(r'^"(.+)"$', r'\1', regex=True).str.replace(r"^'(.+)'$", r"\1", regex=True)
+data['question'] = data['question'].str.replace(r'^"(.+)"$', r'\1', regex=True).str.replace(r"^'(.+)'$", r"\1", regex=True)
+# 20. final trimming and stripping
+# data['question'] = data['question'].str.removesuffix('.)')
+data['answer'] = data['answer'].str.strip().str.strip('.')
+data['question'] = data['question'].str.strip()
+# 21. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
+data = data.drop_duplicates(subset=['book', 'chapter', 'verse', 'question', 'answer'])
+
 
 # finally save
-print(f'Saving this format to {dataDest}')
+data.to_csv(dataDest, index=False) # to get rid of double quotes: quoting=csv.QUOTE_NONE, escapechar="\\"
 print(f'Data\nshape: {data.shape}\ncols:\n{data.dtypes}')
-data.to_csv(dataDest, index=False)
-
 
 
 # df = pd.DataFrame(np.array([
