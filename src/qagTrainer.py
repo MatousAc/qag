@@ -161,24 +161,24 @@ class QAGTrainer(QAGBase):
       quantization_config=self.bnbConfig,
       device_map='auto'
     )
-    self.baseModel.config.use_cache = False
 
-    # more info: https://github.com/huggingface/transformers/pull/24906
-    self.baseModel.config.pretraining_tp = 1 
+    # cache is incompatible with gradient checkpointing
+    self.baseModel.config.use_cache = False
+    # more info: https://huggingface.co/docs/transformers/en/model_doc/llama2
+    # increase for slower but more accurate computation
+    self.baseModel.config.pretraining_tp = 1
 
     # load our tokenizer
     self.tokenizer = AutoTokenizer.from_pretrained(self.paths['base'])
-    self.tokenizer.pad_token = self.tokenizer.eos_token
-
-    # add custom tokens here
+    # add custom/padding tokens
     if (self.trainCf['addCustomTokens'] == 'True'): self.addCustomTokens()
+    else: self.tokenizer.pad_token = self.tokenizer.eos_token
   
   def addCustomTokens(self):
-    specialTokens = [
-      {'highlight_token': '<hl>'},
-      {"pad_token":"<pad>"},
-      {"sep_token":"<sep>"},
-    ]
+    specialTokens = {
+      "pad_token":"<pad>",
+      "sep_token":"<sep>",
+    }
     numAddedToks = self.tokenizer.add_special_tokens(specialTokens)
     if not self.quiet: print(f'Added {numAddedToks} tokens.')
     self.baseModel.resize_token_embeddings(len(self.tokenizer))

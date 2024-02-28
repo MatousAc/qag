@@ -13,6 +13,7 @@ class QAGBase:
     self.genCf = self.cp['general']
     self.mode = self.genCf['mode']
     self.trainFor = self.genCf["trainFor"]
+    self.modelSize = self.genCf["modelSize"]
 
     if (self.genCf['ignoreWarnings'] == 'True'): self.warningIgnore()
     self.quiet = self.genCf['quiet'] == 'True'
@@ -34,12 +35,12 @@ class QAGBase:
     self.latestModelDir = self.paths['output'] + str(latestModelNum).zfill(2)
     self.configure()
 
-  def getLatestModelNumber(self, trainFor: str = None):
+  def getLatestModelNumber(self, pipelineType: str = None):
     '''Returns the latest AE/QG model (defaults to self.mode) in
     the models/mode directory if one is present. Else -1'''
-    if not trainFor: trainFor = self.trainFor
+    if not pipelineType: pipelineType = self.trainFor
     parent = self.paths['output'][:self.paths['output'].find(self.mode)] + self.mode
-    subfolders = [f.path for f in os.scandir(parent) if f.is_dir() and trainFor in f.name]
+    subfolders = [f.path for f in os.scandir(parent) if f.is_dir() and pipelineType in f.name]
     subfolderNumbers = [int(f[-2:]) for f in subfolders]
     return max(subfolderNumbers) if len(subfolders) else -1
 
