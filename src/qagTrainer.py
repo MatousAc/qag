@@ -1,5 +1,5 @@
 # import libraries we need
-import os, sys, torch, numpy as np, evaluate
+import sys, torch, numpy as np, evaluate
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, TrainingArguments
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from peft import LoraConfig, PeftModel
@@ -13,17 +13,10 @@ class QAGTrainer(QAGBase):
     self.peft = self.cp['peft']
     self.trainArgs = self.cp['trainArgs']
     self.trainCf = self.cp['qagTrainer']
-    self.mode = self.trainCf['mode']
     self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
     self.configureTraining()
-    self.timer = TimeLogger()
+    self.timer = TimeLogger(self.mode)
 
-    # increment output folder number
-    # parent = self.paths['output'][:self.paths['output'].find(self.mode)] + self.mode
-    # subfolders = [f.path for f in os.scandir(parent) if f.is_dir()]
-    # lastModelNumber = int(subfolders[-1][-2:])
-    # self.paths['output'] += str(lastModelNumber + 1).zfill(2)
-    
     # assign metric functions
     fxStr = self.trainCf['metricFx']
     if fxStr == 'computeAccuracy': self.metricFx = None
@@ -116,6 +109,28 @@ class QAGTrainer(QAGBase):
     return metrics
 
   def configureTraining(self):
+    '''Configures training arguments, quantization, and LoRA config.'''
+    # if we're testing, we always want to save and evaluate after reaching maxSteps
+    saveAndEvalSteps = min(int(self.trainArgs['saveAndEvalSteps']), self.maxSteps)
+    self.trainingArgs = TrainingArguments(
+      output_dir=self.outputDir,
+      per_device_train_batch_size = int(self.trainArgs['perDeviceTrainBatchSize']),
+      gradient_accumulation_steps = int(self.trainArgs['gradientAccumulationSteps']),
+      learning_rate = float(self.trainArgs['learningRate']),
+      logging_steps = saveAndEvalSteps,
+      max_steps = self.maxSteps,
+      logging_dir = self.outputDir + '/logs',
+      save_strategy = self.trainArgs['saveAndEvalStrategy'],
+      save_steps = saveAndEvalSteps,
+      evaluation_strategy = self.trainArgs['saveAndEvalStrategy'],
+      eval_steps = saveAndEvalSteps,
+      # SFTTrainer auto reports to wandb if installed. put 'none' below to turn off
+      report_to = 'none' if self.mode == 'test' else 'wandb',
+      eval_accumulation_steps = int(self.trainArgs['evalAccumulationSteps']),
+      save_total_limit = int(self.trainArgs['saveTotalLimit']),
+      load_best_model_at_end = self.trainArgs['loadBestModelAtEnd'] == 'True',
+    )
+    
     # quantized LoRA (QLoRA) - uses 4-bit normal float to lighten GPU load
     self.bnbConfig = BitsAndBytesConfig(
       load_in_4bit = True,
@@ -124,25 +139,6 @@ class QAGTrainer(QAGBase):
       bnb_4bit_compute_dtype = torch.float16
     )
     
-    self.trainingArgs = TrainingArguments(
-      output_dir=self.paths['output'],
-      per_device_train_batch_size = int(self.trainArgs['perDeviceTrainBatchSize']),
-      gradient_accumulation_steps = int(self.trainArgs['gradientAccumulationSteps']),
-      learning_rate = float(self.trainArgs['learningRate']),
-      logging_steps = int(self.trainArgs['saveSteps']),
-      max_steps = self.maxSteps,
-      logging_dir = self.paths['output'] + '/logs',
-      save_strategy = self.trainArgs['saveStrategy'],
-      save_steps = min(int(self.trainArgs['saveSteps']), self.maxSteps),
-      evaluation_strategy = self.trainArgs['evaluationStrategy'],
-      eval_steps = int(self.trainArgs['evalSteps']),
-      # SFTTrainer auto reports to wandb if installed. put 'none' below to turn off
-      report_to = 'none' if self.mode == 'test' else 'wandb',
-      eval_accumulation_steps = int(self.trainArgs['evalAccumulationSteps']),
-      save_total_limit = int(self.trainArgs['saveTotalLimit']),
-      load_best_model_at_end = self.trainArgs['saveTotalLimit'] == 'True',
-    )
-
     self.peftConfig = LoraConfig(
       lora_alpha = int(self.peft['loraAlpha']),
       lora_dropout = float(self.peft['loraDropout']),
@@ -209,7 +205,7 @@ class QAGTrainer(QAGBase):
     # click on wandb.ai link for training info
     trainer.train()
     self.printHeader('Training Success')
-    print(f'Model saved to {self.paths["output"]}')
+    print(f'Model saved to {self.outputDir}')
 
   def detokenize(self, tokens):
     with torch.no_grad():
@@ -233,9 +229,13 @@ class QAGTrainer(QAGBase):
   
   def inferenceLoop(self, useBase = False):
     model = self.baseModel
+    self.timer.model = self.paths["base"].split("/")[-1]
     if not useBase:
-      loraLocation = f'{self.paths["output"]}/checkpoint-{self.maxSteps}'
+      loraLocation = f'{self.latestModelDir}/checkpoint-{self.maxSteps}'
       model = PeftModel.from_pretrained(self.baseModel, loraLocation)
+      self.timer.model = self.latestModelDir.split("/")[-1]
+      self.timer.mode = 'base'
+      print(f'Inference using {self.latestModelDir}')
       
     self.printHeader('Testing Loop')
     print('Ctrl+C to exit')
@@ -256,6 +256,4 @@ if __name__ == '__main__':
   match cmd:
     case '-inferBase': trainer.inferenceLoop(useBase = True)
     case '-infer': trainer.inferenceLoop()
-    case '-train' | _:
-      trainer.train()
-      trainer.inferenceLoop()
+    case '-train' | _: trainer.train()

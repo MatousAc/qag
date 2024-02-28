@@ -1,5 +1,6 @@
 from datasets import load_dataset
 from qagBase import QAGBase
+import random
 
 class DataFormatter(QAGBase):
   def configure(self):
@@ -93,8 +94,14 @@ class DataFormatter(QAGBase):
       case 'manual':
         templ = input(f'> ')
         print('↓')
-    templ = templ.replace('<context>', dp.getRandomVerse())
-    templ = templ.replace('<answer>', '')
+    if self.trainFor == 'AE':
+      templ = templ.replace('<context>', dp.getRandomVerse())
+      templ = templ.replace('<answer>', '')
+    if self.trainFor == 'QG':
+      row = random.randint(0, len(self.evalDataset) - 1)
+      templ = templ.replace('<context>', self.evalDataset['sentence'][row])
+      templ = templ.replace('<answer>', self.evalDataset['answer'][row])
+      templ = templ.replace('<question>', '')
     return templ.strip() #template.replace('<context>', dp.getRandomVerse())
 
 if __name__ == '__main__':

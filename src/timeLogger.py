@@ -3,10 +3,14 @@ from qagBase import QAGBase
 import time, os
 
 class TimeLogger(QAGBase):
+  def __init__(self, mode: str, model: str = ''):
+    self.mode = mode
+    self.model = model
+
   def configure(self):
-    self.mode = self.cp['qagTrainer']['mode']
+    self.mode = self.cp['general']['mode']
     self.logDir = self.paths['log']
-    self.logFile = f'{self.logDir}/baseModelExecutionTime.txt'
+    self.logFile = f'{self.logDir}/executionTime.txt'
     self.startTime = None
     self.stopTime = None
     self.timing = False
@@ -14,7 +18,7 @@ class TimeLogger(QAGBase):
     if not os.path.isfile(self.logFile):
       os.makedirs(self.logDir, exist_ok=True)
       f = open(self.logFile, "w")
-      f.write('model, seconds\n')
+      f.write('model, mode, seconds\n')
     
   def start(self):
     if self.timing:
@@ -32,10 +36,9 @@ class TimeLogger(QAGBase):
     self.stopTime = time.time()
     self.timing = False
     elapsedSeconds = self.stopTime - self.startTime
-    model = self.paths["base"].split("/")[-1]
     if log:
       f = open(self.logFile, "a")
-      f.write(f'{model}, {round(elapsedSeconds, 3)}\n')
+      f.write(f'{self.model}, {self.mode}, {round(elapsedSeconds, 3)}\n')
       f.close()
     return elapsedSeconds
     
