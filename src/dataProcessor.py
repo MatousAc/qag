@@ -6,16 +6,16 @@ class DataProcessor(QAGBase):
   def configure(self):
     self.source = self.paths['dpSource']
     self.destination = self.paths['dpDest']
+    self.bibleSrc = self.basePath + '/data/bible/nkjv.csv'
     
-    self.nkjv = pd.read_csv(self.paths['dpBibleSrc'])
+    self.nkjv = pd.read_csv(self.bibleSrc)
     self.nkjvInfo = self.getNkjvInfo()
-
 
   # creates an object representing the NKJV Bible
   def getNkjvInfo(self):
     nkjvContent = {}
 
-    with open(self.paths['dpBibleSrc'], 'r', encoding='utf-8') as csvFile:
+    with open(self.bibleSrc, 'r', encoding='utf-8') as csvFile:
       reader = csv.reader(csvFile)
       next(reader)  # skip header row
 
