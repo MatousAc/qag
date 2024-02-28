@@ -56,14 +56,15 @@ class QAGBase:
 
   # from: https://stackoverflow.com/a/63136181/14062356
   def printProgressBar(self, value: int, maximum: int = 100,
-                       label: str = 'progress', width: str = 50):
+                       label: str = 'progress', width: str = None):
     '''Prints a labeled progress bar at stage value/maximum.'''
+    if not width: width = self.vw - len(label);
     percent = value / maximum
     sys.stdout.write('\r')
     bar = '█' * int(width * percent)
     bar = bar + '-' * int(width * (1-percent))
 
-    sys.stdout.write(f"{label.ljust(10)} | [{bar:{width}s}] {int(100 * percent)}% ")
+    sys.stdout.write(f"{label} |{bar:{width}s}| {int(100 * percent)}% ")
     sys.stdout.flush()
   
   def printHeader(self, str):

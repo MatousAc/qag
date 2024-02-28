@@ -101,26 +101,26 @@ data['answer'] = data['answer'].str.replace(capsRe, lambda match: match.groups()
 data['question'] = data['question'].str.replace(r'\s*\(?be\sspe(cific)|(ific)|(cfic)|(cifc)\)?\.?\s*', r'', flags = re.IGNORECASE, regex=True)
 # 13. transform "v #" to "verse #"
 data['question'] = data['question'].str.replace(r'v\s(\d+)', lambda match: f'verse {match.groups()[0]}', regex=True)
-# 14. replace "None" with "none" so that we can keep these values next time we load them as csv
-data['answer'] = data['answer'].str.replace(r'^None$', r'^none$', regex = True)
-# 15. remove any rows with a point-value greater than 13
+# 14. remove any rows with a point-value greater than 13
 data = data[data['points'] < 13]
-# 16. put back apostrophes that somehow got lost
+# 15. put back apostrophes that somehow got lost
 data['question'] = data['question'].str.replace('�', "'")
 data['answer'] = data['answer'].str.replace('�', "'")
-# 17. remove all occurences of "Do not confuse with verse #" in question and answer columns
+# 16. remove all occurences of "Do not confuse with verse #" in question and answer columns
 data['question'] = data['question'].str.replace(r'\(?do not confuse .*\)?\.?', r'', regex=True, flags=re.IGNORECASE)
 data['answer'] = data['answer'].str.replace(r'\(?do not confuse .*\)?\.?', r'', regex=True, flags=re.IGNORECASE)
-# 18. replace special/double characters
+# 17. replace special/double characters
 data['answer'] = data['answer'].str.replace(r'“|”', r'"', regex=True).str.replace(r"‘|’", r"'", regex=True)
 data['question'] = data['question'].str.replace(r'“|”', r'"', regex=True).str.replace(r"‘|’", r"'", regex=True)
-# 19. remove surrounding quotes and periods
+# 18. remove surrounding quotes and periods
 data['answer'] = data['answer'].str.replace(r'^"(.+)"$', r'\1', regex=True).str.replace(r"^'(.+)'$", r"\1", regex=True)
 data['question'] = data['question'].str.replace(r'^"(.+)"$', r'\1', regex=True).str.replace(r"^'(.+)'$", r"\1", regex=True)
-# 20. final trimming and stripping
+# 19. final trimming and stripping
 # data['question'] = data['question'].str.removesuffix('.)')
 data['answer'] = data['answer'].str.strip().str.strip('.')
 data['question'] = data['question'].str.strip()
+# 20. replace "None" with "none" so that we can keep these values next time we load them as csv
+data['answer'] = data['answer'].str.replace(r'^None$', r'^none$', regex = True)
 # 21. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
 data = data.drop_duplicates(subset=['book', 'chapter', 'verse', 'question', 'answer'])
 

@@ -70,7 +70,6 @@ class DataProcessor(QAGBase):
     data.to_csv(self.destination, index=False)
   
   def makeAE(self):
-    print(self.source)
     # load json of csv
     if ".csv" not in self.source:
       dataset = load_dataset(self.source)
