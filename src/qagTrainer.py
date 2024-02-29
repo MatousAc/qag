@@ -13,7 +13,7 @@ class QAGTrainer(QAGBase):
     self.peft = self.cp['peft']
     self.trainArgs = self.cp['trainArgs']
     self.trainCf = self.cp['qagTrainer']
-    self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
+    # self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
     
     # configure wandb naming
     os.environ["WANDB_PROJECT"] = self.trainFor
@@ -116,19 +116,18 @@ class QAGTrainer(QAGBase):
   def configureTraining(self):
     '''Configures training arguments, quantization, and LoRA config.'''
     # if we're testing, we always want to save and evaluate after reaching maxSteps
-    saveAndEvalSteps = min(int(self.trainArgs['saveAndEvalSteps']), self.maxSteps)
     self.trainingArgs = TrainingArguments(
       output_dir=self.outputDir,
       per_device_train_batch_size = int(self.trainArgs['perDeviceTrainBatchSize']),
       gradient_accumulation_steps = int(self.trainArgs['gradientAccumulationSteps']),
       learning_rate = float(self.trainArgs['learningRate']),
-      logging_steps = saveAndEvalSteps,
-      max_steps = self.maxSteps,
+      logging_steps = int(self.trainArgs['stepSize']),
+      num_train_epochs = int(self.trainArgs['epochs']),
       logging_dir = self.outputDir + '/logs',
       save_strategy = self.trainArgs['saveAndEvalStrategy'],
-      save_steps = saveAndEvalSteps,
+      save_steps = int(self.trainArgs['stepSize']),
       evaluation_strategy = self.trainArgs['saveAndEvalStrategy'],
-      eval_steps = saveAndEvalSteps,
+      eval_steps = int(self.trainArgs['stepSize']),
       # SFTTrainer auto reports to wandb if installed. put 'none' below to turn off
       report_to = 'none' if self.mode == 'test' else 'wandb',
       run_name=self.runName,
