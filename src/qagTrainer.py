@@ -10,7 +10,7 @@ from timeLogger import TimeLogger
 
 class QAGTrainer(QAGBase):
   def configure(self):
-    self.peft = self.cp['peft']
+    self.lora = self.cp['lora']
     self.trainArgs = self.cp['trainArgs']
     self.trainCf = self.cp['qagTrainer']
     # self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
@@ -144,13 +144,15 @@ class QAGTrainer(QAGBase):
       bnb_4bit_compute_dtype = torch.float16
     )
     
-    self.peftConfig = LoraConfig(
-      lora_alpha = int(self.peft['loraAlpha']),
-      lora_dropout = float(self.peft['loraDropout']),
-      r = int(self.peft['r']),
-      bias = self.peft['bias'],
+    self.loraConfig = LoraConfig(
+      lora_alpha = int(self.lora['loraAlpha']),
+      lora_dropout = float(self.lora['loraDropout']),
+      r = int(self.lora['r']),
+      bias = self.lora['bias'],
       # causal lm means the lm only sees tokens to the left of what it's predicting
-      task_type = 'CAUSAL_LM'
+      task_type = 'CAUSAL_LM',
+      # enable more lora layers
+      target_modules=["q_proj", "v_proj"]
     )
   
   def loadModel(self):
@@ -164,6 +166,7 @@ class QAGTrainer(QAGBase):
 
     # more info: https://github.com/huggingface/transformers/pull/24906
     self.baseModel.config.pretraining_tp = 1 
+    print(self.baseModel)
 
     # load our tokenizer
     self.tokenizer = AutoTokenizer.from_pretrained(self.paths['base'])
@@ -194,7 +197,7 @@ class QAGTrainer(QAGBase):
         model=self.baseModel,
         train_dataset = self.dataFormatter.trainDataset,
         eval_dataset = self.dataFormatter.evalDataset,
-        peft_config = self.peftConfig,
+        peft_config = self.loraConfig,
         formatting_func = self.dataFormatter.getExamples,
         max_seq_length = int(self.trainArgs['maxSeqLength']),
         tokenizer = self.tokenizer,

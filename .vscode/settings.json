@@ -33,8 +33,11 @@
     "pretrained",
     "pretraining",
     "randomverse",
+    "scandir",
+    "subfolders",
     "uncapitalize",
-    "untokenized"
+    "untokenized",
+    "wandb"
   ],
   "[python]": {
     "editor.defaultFormatter": "ms-python.autopep8"
