@@ -72,7 +72,7 @@ class QAGBase:
     '''Prints a terminal-wide header with str centered between '~'.'''
     side = '~' * int(0.48 * (self.vw - len(str)))
     print(f'\n{side} {str} {side}')
-  
+
 if __name__ == '__main__':
   QAGBase()
   print("No news is good news.")

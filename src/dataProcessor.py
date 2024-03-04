@@ -1,6 +1,7 @@
 import pandas as pd, sys, random, csv, json, string, re
 from datasets import load_dataset, Dataset
 from qagBase import QAGBase
+from verse import Verse
 
 class DataProcessor(QAGBase):
   def configure(self):
@@ -47,17 +48,13 @@ class DataProcessor(QAGBase):
       # show progress
       self.printProgressBar(i, maximum = maximum, label = 'context')
       # get verse pieces
-      book = row['book']; chapter = row['chapter']; verse = row['verse']; end = row['endVerse']
-      previousNum = verse - 1 if verse > 1 else None
-      followingNum = end + 1 if self.nkjvInfo[book][chapter] > end else None
-      previous = self.getVerse(book, chapter, previousNum) + ' ' if previousNum else ''
-      sentence = self.getVerse(book, chapter, verse, endVerse=end)
-      following = ' ' + self.getVerse(book, chapter, followingNum) if followingNum else ''
+      book = row['book']; chapter = row['chapter']; start = row['verse']; end = row['endVerse']
+      verse: Verse = self.constructVerse(book, chapter, start, end)
       # assign pieces
-      data.at[i, 'sentence'] = sentence
-      data.at[i, 'paragraph'] = previous + sentence + following
-      data.at[i, 'paragraph_question'] = f'question: {row["question"]}, context: {previous + sentence + following}'
-      data.at[i, 'paragraph_sentence'] = f'{previous}<hl> {sentence} <hl>{following}'
+      data.at[i, 'sentence'] = verse.text
+      data.at[i, 'paragraph'] = verse.inContext
+      data.at[i, 'paragraph_question'] = f'question: {row["question"]}, context: {verse.inContext}'
+      data.at[i, 'paragraph_sentence'] = f'{verse.previous}<hl> {verse.text} <hl>{verse.following}'
     self.printProgressBar(maximum, maximum = maximum, label = 'context') # done
     print('\n')
     # reorganize columns
@@ -70,47 +67,48 @@ class DataProcessor(QAGBase):
     data = data[data["sentence"].apply(lambda x: len(x.split()) <= 150)]
     # save
     data.to_csv(self.destination, index=False)
-  
+
+  def aeDeduplicate(self, answers):
+    '''set-based deduplication of similar answers'''
+    def normAns(text):
+      text = text.lower()
+      text = re.sub(r'\((\d{1,3})\) ', '', text) # point marker removal
+      text = text.translate(str.maketrans("", "", string.punctuation))
+      return text
+    
+    def areSimilar(text1, text2):
+      # Split texts into words
+      words1 = set(normAns(text1).split())
+      words2 = set(normAns(text2).split())
+      len1 = len(words1); len2 = len(words2)
+      maxLen = max(len1, len2); minLen = min(len1, len2)
+      # answers are not similar if they are more than 3 words apart
+      # or if the difference is larger than 40% of the smaller answer
+      if abs(len1 - len2) > max(int(minLen * 0.4), 3): return False
+      # answers are similar if they intersect 70% of the time or only
+      # differ by one word for smaller answers
+      threshold = max(maxLen - 1, 1) if maxLen < 5 else int(0.7 * maxLen)
+      return len(words1.intersection(words2)) >= threshold
+
+    # rm near or full duplicates
+    uniqueElems = set()
+    for elem in answers:
+        isDuplicate = any(areSimilar(elem, uniqueElem) for uniqueElem in uniqueElems)
+        if not isDuplicate: uniqueElems.add(elem)
+    return uniqueElems
+
   def makeAE(self):
     # load json of csv
     if ".csv" not in self.source:
       dataset = load_dataset(self.source)
       df = dataset['train'].to_pandas()
     else: df = pd.read_csv(self.source)
-
     df = df[['answer', 'question','sentence']]
+
     # group answers by verse and remove near duplicates
-    def rmNearDup(series):
-      def normAns(text):
-        text = text.lower()
-        text = re.sub(r'\((\d{1,3})\) ', '', text) # point marker removal
-        text = text.translate(str.maketrans("", "", string.punctuation))
-        return text
-      
-      def areSimilar(text1, text2):
-        # Split texts into words
-        words1 = set(normAns(text1).split())
-        words2 = set(normAns(text2).split())
-        len1 = len(words1); len2 = len(words2)
-        maxLen = max(len1, len2); minLen = min(len1, len2)
-        # answers are not similar if they are more than 3 words apart
-        # or if the difference is larger than 40% of the smaller answer
-        if abs(len1 - len2) > max(int(minLen * 0.4), 3): return False
-        # answers are similar if they intersect 70% of the time or only
-        # differ by one word for smaller answers
-        threshold = max(maxLen - 1, 1) if maxLen < 5 else int(0.7 * maxLen)
-        return len(words1.intersection(words2)) >= threshold
-
-      # rm near or full duplicates
-      uniqueElems = set()
-      for elem in series:
-          isDuplicate = any(areSimilar(elem, uniqueElem) for uniqueElem in uniqueElems)
-          if not isDuplicate: uniqueElems.add(elem)
-      return uniqueElems
-
     sep = ' <sep> '
     grouped = df.groupby('sentence').agg({
-      'answer': lambda x: sep.join(rmNearDup(x))
+      'answer': lambda x: sep.join(self.aeDeduplicate(x))
     }).reset_index()
     grouped['count'] = grouped['answer'].apply(lambda x: x.count(sep) + 1)
     grouped.rename(columns={'question': 'count'}, inplace=True)
@@ -133,33 +131,42 @@ class DataProcessor(QAGBase):
     data = pd.json_normalize(data['json_element'].apply(json.loads))
     data.to_csv(self.destination)
 
-  def getVerse(self, book, chapter, startVerse, endVerse = None):
-    # default to start verse
-    endVerse = endVerse if endVerse else startVerse
-    if endVerse < startVerse:
-      print('Warning: endVerse is less than startVerse.')
+  def constructVerse(self, *args) -> Verse:
+    v = Verse(*args)
+    # get context verse numbers if applicable
+    previousNum = v.start - 1 if v.start > 1 else None
+    followingNum = v.end + 1 if self.nkjvInfo[v.book][v.chapter] > v.end else None
 
-    result = ''
-    for verseNumber in range(startVerse, endVerse + 1):
-      result += self.nkjv.loc[
-        (self.nkjv['verseNumber'] == verseNumber)
-        & (self.nkjv['book'] == book)
-        & (self.nkjv['chapterNumber'] == chapter)
-      , 'verse'].values[0]
-    return result
+    # get verse text
+    chapter = self.nkjv.loc[
+      (self.nkjv['book'] == v.book)
+      & (self.nkjv['chapterNumber'] == v.chapter)
+    ]
+    def getVrs(num: int): return chapter.loc[chapter['verseNumber'] == num, 'verse'].values[0]
+    
+    v.previous = getVrs(previousNum) if previousNum else ''
+    v.following = getVrs(followingNum) if followingNum else ''
+    
+    targetVerses = []
+    for verseNumber in range(v.start, v.end + 1):
+      targetVerses.append(getVrs(verseNumber))
+    v.text = ' '.join(targetVerses)
+    v.inContext = f'{v.previous} {v.text} {v.following}'.strip()
+    return v
 
-  def getRandomVerse(self): 
+
+  def getRandomVerse(self) -> Verse: 
     book = random.choice(self.nkjv['book'].unique())
     df = self.nkjv.loc[self.nkjv['book'] == book]
     chapter = random.choice(df['chapterNumber'].unique())
     df = df.loc[df['chapterNumber'] == chapter]
-    verse = random.choice(df['verseNumber'].unique())
-    return df.loc[df['verseNumber'] == verse].values[0][-1]
+    verseNumber = random.choice(df['verseNumber'].unique())
+    return self.constructVerse(book, chapter, verseNumber)
 
 if __name__ == '__main__':
   dp = DataProcessor()
   match sys.argv[1].replace('-', '').lower():
-    case 'randomverse': print(dp.getRandomVerse())
+    case 'randomverse': print(dp.getRandomVerse().text)
     case 'makeae': dp.makeAE()
     case 'pbecontextualize': dp.pbeContextualize()
     case 'csvtojsonl': dp.csvToJsonl()

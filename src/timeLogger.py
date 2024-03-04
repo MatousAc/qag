@@ -3,9 +3,8 @@ from qagBase import QAGBase
 import time, os
 
 class TimeLogger(QAGBase):
-  def __init__(self, mode: str, model: str = ''):
-    self.mode = mode
-    self.model = model
+  mode = ''
+  model = ''
 
   def configure(self):
     self.mode = self.cp['general']['mode']

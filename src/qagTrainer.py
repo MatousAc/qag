@@ -12,7 +12,7 @@ class QAGTrainer(QAGBase):
   def configure(self):
     self.peft = self.cp['peft']
     self.trainArgs = self.cp['trainArgs']
-    self.trainCf = self.cp['qagTrainer']
+    self.modelCf = self.cp['model']
     self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
     
     # configure wandb naming
@@ -20,10 +20,10 @@ class QAGTrainer(QAGBase):
     self.runName = os.path.split(self.outputDir)[1] # run name = output folder
     
     self.configureTraining()
-    self.timer = TimeLogger(self.mode)
+    self.timer = TimeLogger()
 
     # assign metric functions
-    fxStr = self.trainCf['metricFx']
+    fxStr = self.modelCf['metricFx']
     if fxStr == 'computeAccuracy': self.metricFx = None
     else: self.metricFx = evaluate.load(fxStr)
 
@@ -171,7 +171,7 @@ class QAGTrainer(QAGBase):
     # load our tokenizer
     self.tokenizer = AutoTokenizer.from_pretrained(self.paths['base'])
     # add custom/padding tokens
-    if (self.trainCf['addCustomTokens'] == 'True'): self.addCustomTokens()
+    if (self.modelCf['addCustomTokens'] == 'True'): self.addCustomTokens()
     else: self.tokenizer.pad_token = self.tokenizer.eos_token
   
   def addCustomTokens(self):
@@ -182,10 +182,10 @@ class QAGTrainer(QAGBase):
     numAddedToks = self.tokenizer.add_special_tokens(specialTokens)
     if not self.quiet: print(f'Added {numAddedToks} tokens.')
     self.baseModel.resize_token_embeddings(len(self.tokenizer))
-    
+  
   def train(self):
     collator = None # by passing None, we use the default collator
-    if (self.trainCf['optimizeCompletion'] == 'True'):
+    if (self.modelCf['optimizeCompletion'] == 'True'):
       collator = DataCollatorForCompletionOnlyLM(
         self.dataFormatter.respKey, tokenizer=self.tokenizer
       )
@@ -200,7 +200,7 @@ class QAGTrainer(QAGBase):
         max_seq_length = int(self.trainArgs['maxSeqLength']),
         tokenizer = self.tokenizer,
         args = self.trainingArgs,
-        packing = self.trainCf['packing'] == 'True',
+        packing = self.modelCf['packing'] == 'True',
         data_collator = collator,
         # pass custom eval here
         compute_metrics = None if self.metricFx == None else self.computeMetric,
@@ -220,10 +220,8 @@ class QAGTrainer(QAGBase):
   # testing the models
   def inference(self, model: AutoModelForCausalLM):
     inferenceInput = self.dataFormatter.getInferenceInput(self.dp)
+    # fixme: tokenizer should come from model directory
     modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
-    # print('Model input')
-    # print(modelInput)
-
     self.timer.start()
     model.eval()
     with torch.no_grad():
@@ -236,11 +234,14 @@ class QAGTrainer(QAGBase):
   def inferenceLoop(self, useBase = False):
     model = self.baseModel
     self.timer.model = self.paths["base"].split("/")[-1]
+    self.timer.mode = 'base'
     if not useBase:
       loraLocation = f'{self.latestModelDir}/checkpoint-{self.maxSteps}'
       model = PeftModel.from_pretrained(self.baseModel, loraLocation)
+      self.tokenizer = AutoTokenizer.from_pretrained(loraLocation)
+      model.resize_token_embeddings(len(self.tokenizer))
       self.timer.model = self.latestModelDir.split("/")[-1]
-      self.timer.mode = 'base'
+      self.timer.mode = self.mode
       print(f'Inference using {self.latestModelDir}')
       
     self.printHeader('Testing Loop')
@@ -259,7 +260,7 @@ if __name__ == '__main__':
   trainer.loadModel()
   if len(sys.argv) == 1: cmd = '-train'
   else: cmd = sys.argv[1]
-  match cmd:
-    case '-inferBase': trainer.inferenceLoop(useBase = True)
-    case '-infer': trainer.inferenceLoop()
-    case '-train' | _: trainer.train()
+  match cmd.replace('-', '').lower():
+    case 'inferbase': trainer.inferenceLoop(useBase = True)
+    case 'infer': trainer.inferenceLoop()
+    case 'train' | _: trainer.train()

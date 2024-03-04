@@ -19,7 +19,7 @@ class DataFormatter(QAGBase):
     #   case 'parHlAns_Q': self.formatText = self.parHlAns_Q
     #   case 'sen_As': self.formatText = self.sen_As
     
-    if (self.cp['qagTrainer']['packing'] == 'True'):
+    if (self.cp['model']['packing'] == 'True'):
       self.getExamples = self.formatInput
     else: self.getExamples = self.unpackedProcessing
   
@@ -95,14 +95,14 @@ class DataFormatter(QAGBase):
         templ = input(f'> ')
         print('↓')
     if self.trainFor == 'AE':
-      templ = templ.replace('<context>', dp.getRandomVerse())
+      templ = templ.replace('<context>', dp.getRandomVerse().text)
       templ = templ.replace('<answer>', '')
     if self.trainFor == 'QG':
       row = random.randint(0, len(self.evalDataset) - 1)
       templ = templ.replace('<context>', self.evalDataset['sentence'][row])
       templ = templ.replace('<answer>', self.evalDataset['answer'][row])
       templ = templ.replace('<question>', '')
-    return templ.strip() #template.replace('<context>', dp.getRandomVerse())
+    return templ.strip()
 
 if __name__ == '__main__':
   df = DataFormatter()
