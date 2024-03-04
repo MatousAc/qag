@@ -1,3 +1,23 @@
+# Trained model notes
+The best models so far are emboldend
+## AE
+* 7b-chatAE00: Specific prompt. No custom tokens. Produces relatively good extracted answers, but sometimes duplicated ones. Does not stop short.
+* 7b-chatAE01: Specific prompt. No custom tokens. Further de-duplicated data. Produces decent answers w/ less duplication. Does not stop short.
+* 7b-chatAE02: Specific prompt. Custom tokens. Produces trash. Does not stop short.
+* **7b-chatAE03**: Less specific prompt. No custom tokens. Produces good answers. Does not stop short.
+
+## QG
+* 7b-chatQG00: Relatively specific unoptimized prompt. No custom tokens. Produces decent questions. Spits out a ton of "do not confuse w/ vs #"
+* 7b-chatQG01: Relatively specific unoptimized prompt. No custom tokens. Removed "do not confuse" from training data. Produces good questions, though they are a bit short. Spits out trash after the question.
+* 7b-chatQG02: Relatively specific unoptimized prompt. Custom tokens. Produces decent questions, though those that are longer are too long. Spits out trash after the question.
+* **7b-chatQG03**: Unspecific prompt. No custom tokens. Produces good questions 80% of the time but then continues with trash.
+
+
+
+
+
+
+
 # Input format testing
 
 ## Text-completion models 
@@ -27,7 +47,7 @@ Performance: decent at times
 
 #### All
 Performance: decent enough to try <- current AE prompt
-<s> ### Extract any nouns, noun phrases, actions, key phrases, and lists that appear in the following context and return them. ### Verse: <context> ### Nouns, noun phrases, actions, key phrases, and lists:
+<s> ${delim} Extract any nouns, noun phrases, actions, key phrases, and lists that appear in the following context and return them separated by <sep>. ${delim} Verse: <context> ${delim} Nouns, noun phrases, actions, key phrases, and lists: <answer>
 
 Performance: mid
 <s>[INST] <<SYS>>\n{Extract any entities, actions, key phrases, or lists that appear in the following prompt. Separate each unit by a hashtag (#). Only return words, phrases, and lists that are in the prompt provided.}\n<</SYS>>\n\n{<context>} [/INST]
