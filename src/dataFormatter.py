@@ -21,7 +21,8 @@ class DataFormatter(QAGBase):
     if len(dsDict) == 1:
       if not self.quiet: print('Splitting data . . .')
       key = [split for split in dsDict][0]
-      dsDict = dsDict[key].train_test_split(test_size=float(self.dfCf['evalToTrainRatio']))
+      evalToTrainRatio = 0.001 if self.mode == 'test' else float(self.dfCf['evalToTrainRatio'])
+      dsDict = dsDict[key].train_test_split(test_size=evalToTrainRatio)
     if not self.quiet:
       print('Results:')
       print(dsDict)

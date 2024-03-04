@@ -13,7 +13,6 @@ class QAGTrainer(QAGBase):
     self.lora = self.cp['lora']
     self.trainArgs = self.cp['trainArgs']
     self.modelCf = self.cp['model']
-    # self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
     
     # configure wandb naming
     os.environ["WANDB_PROJECT"] = self.trainFor
@@ -26,12 +25,13 @@ class QAGTrainer(QAGBase):
     '''Configures training arguments, quantization, and LoRA config.'''
     # if we're testing, we always want to save and evaluate after reaching maxSteps
     self.trainingArgs = TrainingArguments(
-      output_dir=self.outputDir,
+      output_dir = self.outputDir,
       per_device_train_batch_size = int(self.trainArgs['perDeviceTrainBatchSize']),
       gradient_accumulation_steps = int(self.trainArgs['gradientAccumulationSteps']),
       learning_rate = float(self.trainArgs['learningRate']),
       logging_steps = int(self.trainArgs['stepSize']),
-      num_train_epochs = int(self.trainArgs['epochs']),
+      num_train_epochs = float(self.trainArgs['epochs']),
+      max_steps = 1 if self.mode == 'test' else 0, # 1 step for tests, 0 does not override epoch number
       logging_dir = self.outputDir + '/logs',
       save_strategy = self.trainArgs['saveAndEvalStrategy'],
       save_steps = int(self.trainArgs['stepSize']),
@@ -39,7 +39,7 @@ class QAGTrainer(QAGBase):
       eval_steps = int(self.trainArgs['stepSize']),
       # SFTTrainer auto reports to wandb if installed. put 'none' below to turn off
       report_to = 'none' if self.mode == 'test' else 'wandb',
-      run_name=self.runName,
+      run_name = self.runName,
       eval_accumulation_steps = int(self.trainArgs['evalAccumulationSteps']),
       save_total_limit = int(self.trainArgs['saveTotalLimit']),
       load_best_model_at_end = self.trainArgs['loadBestModelAtEnd'] == 'True',
@@ -61,7 +61,7 @@ class QAGTrainer(QAGBase):
       # causal lm means the lm only sees tokens to the left of what it's predicting
       task_type = 'CAUSAL_LM',
       # enable more lora layers
-      target_modules=["q_proj", "v_proj"]
+      # target_modules=["q_proj", "v_proj"] # fixme: uncomment soon
     )
   
   def loadModel(self):
@@ -127,7 +127,6 @@ class QAGTrainer(QAGBase):
   def inference(self, model: AutoModelForCausalLM):
     '''Infers with the specified model'''
     inferenceInput = self.dataFormatter.getInferenceInput(self.dp)
-    # fixme: tokenizer should come from model directory
     modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
     self.timer.start()
     model.eval()

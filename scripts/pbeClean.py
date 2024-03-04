@@ -99,8 +99,8 @@ data['bigPoints'] = data['points'] > 3
 capsRe = r'\b([A-Z]{2,})\b'
 data['question'] = data['question'].str.replace(capsRe, lambda match: match.groups()[0].lower(), regex=True)
 data['answer'] = data['answer'].str.replace(capsRe, lambda match: match.groups()[0].lower(), regex=True)
-# 13. Remove Be Specific, any caps, w/ or without parentheses, periods && various misspellingsc
-data['question'] = data['question'].str.replace(r'\s*\(?be\sspe(cific)|(ific)|(cfic)|(cifc)\)?\.?\s*', r'', flags = re.IGNORECASE, regex=True)
+# 13. remove Be Specific, any caps, w/ or without parentheses, periods && various misspellingsc
+data['question'] = data['question'].str.replace(r'\s*\(?be\sspe((cific)|(ific)|(cfic)|(cifc))\.?\)?\.?\s*', r'', flags = re.IGNORECASE, regex=True)
 # 14. transform "v #" to "verse #"
 data['question'] = data['question'].str.replace(r'v\s(\d+)', lambda match: f'verse {match.groups()[0]}', regex=True)
 # 15. remove any rows with a point-value greater than 13
@@ -117,12 +117,15 @@ data['question'] = data['question'].str.replace(r'“|”', r'"', regex=True).st
 # 19. remove surrounding quotes and periods
 data['answer'] = data['answer'].str.replace(r'^"(.+)"$', r'\1', regex=True).str.replace(r"^'(.+)'$", r"\1", regex=True)
 data['question'] = data['question'].str.replace(r'^"(.+)"$', r'\1', regex=True).str.replace(r"^'(.+)'$", r"\1", regex=True)
-# 20. final trimming and stripping
+# 20 remove anything within parentheses that is not just a point value
+data['answer'] = data['answer'].str.replace(r'\(\d*[a-zA-Z\s\.?!\-\'"]+\d*\)', r'', regex=True)
+data['question'] = data['question'].str.replace(r'\(\d*[a-zA-Z\s\.?!\-\'"]+\d*\)', r'', regex=True)
+# 21. final trimming and stripping
 data['answer'] = data['answer'].str.strip().str.strip('.')
 data['question'] = data['question'].str.strip()
-# 21. replace "None" with "none" so that we can keep these values next time we load them as csv
+# 22. replace "None" with "none" so that we can keep these values next time we load them as csv
 data['answer'] = data['answer'].str.replace(r'^None$', r'^none$', regex = True)
-# 22. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
+# 23. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
 data = data.drop_duplicates(subset=['book', 'chapter', 'verse', 'question', 'answer'])
 
 

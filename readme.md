@@ -39,8 +39,21 @@ pip install datasets evaluate huggingface numpy pandas transformers tokenizers t
 
 It's up to you to figure out how to install cuda toolkit on your machine.
 
-# Running inference
-To run the model just interpret [qagTrainer.py](src/qagTrainer.py). You will be in an inference loop. If in prompt generation mode, all you have to do is press enter to prompt the model.
+# Training
+To fine-tune a new model set up the proper config (AE vs. QG) and then run [qagTrainer.py](src/qagTrainer.py). The run stats should be available in the pbe_qag team on wandb.ai under the AE or QG project.
+
+To run AE and the QG traing back-to-back, just start with `trainFor` in [qag.ini](src/qag.ini) as `AE` and run:
+```
+python qagTrainer.py; python qagTrainer.py
+```
+And then once the first training has started, simply change `trainFor` to `QG`. Save the file. This will run AE training first and, when complete, will run another trainig, but this time QG as that is what [qag.ini](src/qag.ini) specifies.
+
+# Generating questions and answers
+To run the model just run [generator.py](src/generator.py).
+```
+python generator.py
+```
+You will be in an inference loop where you can enter a verse reference for generation or press enter for a random verse.
 
 The configuration for the project is in [qag.ini](src/qag.ini). This file determines the current model source, data source, and inference prompt used. Data && logs are kept in the [data](data/) folder.
 
