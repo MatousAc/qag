@@ -1,5 +1,5 @@
 # import libraries we need
-import os, sys, torch, numpy as np, evaluate
+import os, sys, torch
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, TrainingArguments
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from peft import LoraConfig, PeftModel
@@ -21,97 +21,6 @@ class QAGTrainer(QAGBase):
     
     self.configureTraining()
     self.timer = TimeLogger()
-
-    # assign metric functions
-    fxStr = self.modelCf['metricFx']
-    if fxStr == 'computeAccuracy': self.metricFx = None
-    else: self.metricFx = evaluate.load(fxStr)
-
-  def preprocessLogits(self, logits: torch.Tensor, labels: torch.Tensor) ->   torch.Tensor:
-    # at this point the model gives us logits and labels as tensors. labels seem to be shaped as
-    # lists of token sequence references (e.g. in torch.Size([8, 146])) there are 8 references 
-    # of length 146 each). note that the important labels are padded by a lot of -100 tokens which
-    # we should filter out. logits add one dimension to this as instead of the 'token_id' value
-    # they include an array of non-normalized probabilities, one for every token. this leaves us
-    # with a huge z-dimension (e.g. torch.Size([8, 146, 32000])) that is basically the size of
-    # our tokenizer vocabulary. the higher values represent higher probabilities.
-    # thus, we can just pick the index of the highest value in dim=-1 (last dimension) to 
-    # get our 'most probable token_id'
-    # see issue: https://github.com/huggingface/transformers/issues/15466
-    # unfortunately, just picking the highest probability in each tensor is not sufficient
-    # to produce grammatically valid sentences
-
-    # FIXME: use top-k or top-p methods of selecting tokens
-    # try seeing what the library does by default
-    # also remove this debugging stuff below evetually
-    # print('Looking at Logits\nAll Logits in one:')
-    # print(f'logits.shape: {logits.shape}')
-    # print(logits)
-    # print('Looking at Lables\nAll Labels in one:')
-    # print(f'labels.shape: {labels.shape}')
-    # print(labels)
-    
-    # logits = logits.argmax(dim=-1)
-    # print('Looking at Logits AGAIN\nAll Logits in one:')
-    # print(f'logits.shape: {logits.shape}')
-    # print(logits)
-      
-    # print('Done w/ Preprocessing Logits')
-    return logits.argmax(dim = -1)
-    
-  def injectCustomEvaluation(self, evalPred):
-    # this function should just output the performance of the latests checkpoint
-    # curretly, it does no such thing
-    print(f'Evaluating with Gooogle Bleu')
-    
-    inputs = self.dataFormatter.getEvalInputs(20)
-    print(inputs)
-    prompts = []
-    reference = []
-    for put in inputs:
-      splt = put.split(self.dataFormatter.respTemple)
-      prompts.append(splt[0] + self.dataFormatter.respTemple)
-      reference.append([splt[1]])
-    print('Prompts')
-    print(prompts)
-    print('Reference')
-    print(reference)
-    
-    
-    
-    # takes: predictions (list of str): list of translations to score.
-    #        references (list of list of str): list of lists of references for each translation.
-    metrics = self.metricFx.compute(predictions=prompts, references=reference)
-    print(metrics)
-    return metrics
-
-  def computeMetric(self, evalPred):
-    # we receive a tuple of predictions and references.
-    # these should be triply-nested lists of ints
-    print(f'Evaluating with Google Bleu')
-    preds, labels = evalPred
-    
-    # we have to decode our predictions for most custom metrics
-    print('Predictions:')
-    print(preds)
-    preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
-    decodedPreds = [self.detokenize(ids) for ids in preds]
-    print(decodedPreds)
-    
-    print('References:')
-    print(labels)
-    # replace -100 in the labels as we can't decode them.
-    labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-    # every reference is a list of references by default
-    decodedLabels = [[self.detokenize(ids)] for ids in labels]
-
-    print(decodedLabels)
-    
-    # takes: predictions (list of str): list of translations to score.
-    #        references (list of list of str): list of lists of references for each translation.
-    metrics = self.metricFx.compute(predictions=decodedPreds, references=decodedLabels)
-    print(metrics)
-    return metrics
 
   def configureTraining(self):
     '''Configures training arguments, quantization, and LoRA config.'''
@@ -156,7 +65,7 @@ class QAGTrainer(QAGBase):
     )
   
   def loadModel(self):
-    # load our model
+    '''Loads the base model and tokenizer'''
     self.baseModel = AutoModelForCausalLM.from_pretrained(
       pretrained_model_name_or_path=self.paths['base'],
       quantization_config=self.bnbConfig,
@@ -176,6 +85,7 @@ class QAGTrainer(QAGBase):
     else: self.tokenizer.pad_token = self.tokenizer.eos_token
   
   def addCustomTokens(self):
+    '''Adds custom tokens to model. Don't use this option.'''
     specialTokens = {
       "pad_token":"<pad>",
       "sep_token":"<sep>",
@@ -185,6 +95,7 @@ class QAGTrainer(QAGBase):
     self.baseModel.resize_token_embeddings(len(self.tokenizer))
   
   def train(self):
+    '''Sets up and conducts fine-tuning'''
     collator = None # by passing None, we use the default collator
     if (self.modelCf['optimizeCompletion'] == 'True'):
       collator = DataCollatorForCompletionOnlyLM(
@@ -193,33 +104,28 @@ class QAGTrainer(QAGBase):
     
     # use the SFTTrainer from HuggingFace's trl library
     trainer = SFTTrainer(
-        model=self.baseModel,
-        train_dataset = self.dataFormatter.trainDataset,
-        eval_dataset = self.dataFormatter.evalDataset,
-        peft_config = self.loraConfig,
-        formatting_func = self.dataFormatter.getExamples,
-        max_seq_length = int(self.trainArgs['maxSeqLength']),
-        tokenizer = self.tokenizer,
-        args = self.trainingArgs,
-        packing = self.modelCf['packing'] == 'True',
-        data_collator = collator,
-        # pass custom eval here
-        compute_metrics = None if self.metricFx == None else self.computeMetric,
-        # reduce logits into token_ids for custom metrics
-        preprocess_logits_for_metrics = None if self.metricFx == None else self.preprocessLogits
-      )
+      model=self.baseModel,
+      train_dataset = self.dataFormatter.trainDataset,
+      eval_dataset = self.dataFormatter.evalDataset,
+      peft_config = self.loraConfig,
+      formatting_func = self.dataFormatter.getExamples,
+      max_seq_length = int(self.trainArgs['maxSeqLength']),
+      tokenizer = self.tokenizer,
+      args = self.trainingArgs,
+      packing = self.modelCf['packing'] == 'True',
+      data_collator = collator,
+      # pass custom eval here
+      compute_metrics = None, # default to 'computeAccuracy'
+    )
     # pass in resume_from_checkpoint=True to resume from a checkpoint
     # click on wandb.ai link for training info
     trainer.train()
     self.printHeader('Training Success')
     print(f'Model saved to {self.outputDir}')
 
-  def detokenize(self, tokens):
-    with torch.no_grad():
-      return self.tokenizer.decode(tokens, skip_special_tokens=True)
-    
   # testing the models
   def inference(self, model: AutoModelForCausalLM):
+    '''Infers with the specified model'''
     inferenceInput = self.dataFormatter.getInferenceInput(self.dp)
     # fixme: tokenizer should come from model directory
     modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
@@ -227,12 +133,13 @@ class QAGTrainer(QAGBase):
     model.eval()
     with torch.no_grad():
       tokens = model.generate(**modelInput, max_new_tokens=100)[0]
-      print(self.detokenize(tokens))
+      print(self.tokenizer.decode(tokens, skip_special_tokens=True))
     self.timer.stop()
     
     print('~' * self.vw)
   
   def inferenceLoop(self, useBase = False):
+    '''Loops inference with base of fine-tuned models'''
     model = self.baseModel
     self.timer.model = self.paths["base"].split("/")[-1]
     self.timer.mode = 'base'
@@ -252,7 +159,6 @@ class QAGTrainer(QAGBase):
       while True: self.inference(model)
     except KeyboardInterrupt: print('\rClosing\n')
     except: raise # rethrow
-
 
 if __name__ == '__main__':
   df = DataFormatter()

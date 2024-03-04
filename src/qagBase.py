@@ -45,6 +45,7 @@ class QAGBase:
     return max(subfolderNumbers) if len(subfolders) else -1
 
   def configure(self):
+    '''Configuration for derived class'''
     pass
 
   def warningIgnore(self):

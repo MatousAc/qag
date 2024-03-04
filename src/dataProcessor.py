@@ -12,8 +12,8 @@ class DataProcessor(QAGBase):
     self.nkjv = pd.read_csv(self.bibleSrc)
     self.nkjvInfo = self.getNkjvInfo()
 
-  # creates an object representing the NKJV Bible
   def getNkjvInfo(self):
+    '''Creates an object representing the NKJV Bible'''
     nkjvContent = {}
 
     with open(self.bibleSrc, 'r', encoding='utf-8') as csvFile:
@@ -39,6 +39,7 @@ class DataProcessor(QAGBase):
     return nkjvContent
 
   def pbeContextualize(self):
+    '''Adds the actual verse texts to data'''
     data = pd.read_csv(self.source)
     data['sentence'] = ''; data['paragraph'] = ''; data['paragraph_question'] = ''; data['paragraph_sentence'] = ''
     if not self.quiet: print(f'dataset length: {len(data.index)}')
@@ -69,7 +70,7 @@ class DataProcessor(QAGBase):
     data.to_csv(self.destination, index=False)
 
   def aeDeduplicate(self, answers):
-    '''set-based deduplication of similar answers'''
+    '''Set-based deduplication of similar answers'''
     def normAns(text):
       text = text.lower()
       text = re.sub(r'\((\d{1,3})\) ', '', text) # point marker removal
@@ -98,6 +99,7 @@ class DataProcessor(QAGBase):
     return uniqueElems
 
   def makeAE(self):
+    '''Aggregates verses to get AE data'''
     # load json of csv
     if ".csv" not in self.source:
       dataset = load_dataset(self.source)
@@ -121,9 +123,11 @@ class DataProcessor(QAGBase):
     dataset.to_json(self.destination)
     
   def csvToJsonl(self):
+    '''Converts CSV to JSONL'''
     pd.read_csv(self.source).to_json(self.destination, orient='records', lines = True)
     
   def jsonlToCsv(self):
+    '''Converts JSONL to CSV'''
     with open(self.source) as f:
       lines = f.read().splitlines()
     data = pd.DataFrame(lines)
@@ -132,6 +136,10 @@ class DataProcessor(QAGBase):
     data.to_csv(self.destination)
 
   def constructVerse(self, *args) -> Verse:
+    '''Returns a Verse object given a reference.
+    Reference can be a normally formatted string such as John 3:16-17,
+    or a book, chapter, and verse start/end numbers.'''
+    # let the constructor handle lots of the setup
     v = Verse(*args)
     # get context verse numbers if applicable
     previousNum = v.start - 1 if v.start > 1 else None
@@ -154,8 +162,9 @@ class DataProcessor(QAGBase):
     v.inContext = f'{v.previous} {v.text} {v.following}'.strip()
     return v
 
-
   def getRandomVerse(self) -> Verse: 
+    '''Returns a Verse object based on a random selection of
+    book, chapter, and verse number.'''
     book = random.choice(self.nkjv['book'].unique())
     df = self.nkjv.loc[self.nkjv['book'] == book]
     chapter = random.choice(df['chapterNumber'].unique())
