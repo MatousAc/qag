@@ -10,10 +10,10 @@ from timeLogger import TimeLogger
 
 class QAGTrainer(QAGBase):
   def configure(self):
-    self.peft = self.cp['peft']
+    self.lora = self.cp['lora']
     self.trainArgs = self.cp['trainArgs']
     self.modelCf = self.cp['model']
-    self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
+    # self.maxSteps = int(self.trainArgs[f'max{self.mode.capitalize()}Steps'])
     
     # configure wandb naming
     os.environ["WANDB_PROJECT"] = self.trainFor
@@ -116,19 +116,18 @@ class QAGTrainer(QAGBase):
   def configureTraining(self):
     '''Configures training arguments, quantization, and LoRA config.'''
     # if we're testing, we always want to save and evaluate after reaching maxSteps
-    saveAndEvalSteps = min(int(self.trainArgs['saveAndEvalSteps']), self.maxSteps)
     self.trainingArgs = TrainingArguments(
       output_dir=self.outputDir,
       per_device_train_batch_size = int(self.trainArgs['perDeviceTrainBatchSize']),
       gradient_accumulation_steps = int(self.trainArgs['gradientAccumulationSteps']),
       learning_rate = float(self.trainArgs['learningRate']),
-      logging_steps = saveAndEvalSteps,
-      max_steps = self.maxSteps,
+      logging_steps = int(self.trainArgs['stepSize']),
+      num_train_epochs = int(self.trainArgs['epochs']),
       logging_dir = self.outputDir + '/logs',
       save_strategy = self.trainArgs['saveAndEvalStrategy'],
-      save_steps = saveAndEvalSteps,
+      save_steps = int(self.trainArgs['stepSize']),
       evaluation_strategy = self.trainArgs['saveAndEvalStrategy'],
-      eval_steps = saveAndEvalSteps,
+      eval_steps = int(self.trainArgs['stepSize']),
       # SFTTrainer auto reports to wandb if installed. put 'none' below to turn off
       report_to = 'none' if self.mode == 'test' else 'wandb',
       run_name=self.runName,
@@ -145,13 +144,15 @@ class QAGTrainer(QAGBase):
       bnb_4bit_compute_dtype = torch.float16
     )
     
-    self.peftConfig = LoraConfig(
-      lora_alpha = int(self.peft['loraAlpha']),
-      lora_dropout = float(self.peft['loraDropout']),
-      r = int(self.peft['r']),
-      bias = self.peft['bias'],
+    self.loraConfig = LoraConfig(
+      lora_alpha = int(self.lora['loraAlpha']),
+      lora_dropout = float(self.lora['loraDropout']),
+      r = int(self.lora['r']),
+      bias = self.lora['bias'],
       # causal lm means the lm only sees tokens to the left of what it's predicting
-      task_type = 'CAUSAL_LM'
+      task_type = 'CAUSAL_LM',
+      # enable more lora layers
+      target_modules=["q_proj", "v_proj"]
     )
   
   def loadModel(self):
@@ -195,7 +196,7 @@ class QAGTrainer(QAGBase):
         model=self.baseModel,
         train_dataset = self.dataFormatter.trainDataset,
         eval_dataset = self.dataFormatter.evalDataset,
-        peft_config = self.peftConfig,
+        peft_config = self.loraConfig,
         formatting_func = self.dataFormatter.getExamples,
         max_seq_length = int(self.trainArgs['maxSeqLength']),
         tokenizer = self.tokenizer,
