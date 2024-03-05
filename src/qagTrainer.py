@@ -123,6 +123,7 @@ class QAGTrainer(QAGBase):
     # we receive a tuple of predictions and references.
     preds, labels = evalPred
     # decode prediction tokens because custom metrics expect plain text
+    preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
     decodedPreds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
     # we ignore the -100 tokens, as those are the prompt
     labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
