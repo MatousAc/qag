@@ -6,7 +6,8 @@ The best models so far are emboldend
 * 7b-chatAE02: Specific prompt. Custom tokens. Latest data w/o the "Do not confuse with . . ." Produces trash. Does not stop short.
 * 7b-chatAE03: Less specific prompt. No custom tokens. Produces good answers. Does not stop short.
 * 7b-chatAE04: Unspecific prompt. No custom tokens. Trained on max data. Does just as well as above.
-* **7b-chatAE05**: Unspecific prompt. No custom tokens. Testing cutom eval metrics. Extracts good answers
+* **7b-chatAE05**: Unspecific prompt. No custom tokens. Testing cutom eval metrics. The generation seems to get slightly better as we go along through training, but the metrics don't change as much as I'd expect. The end result extracts good answers.
+* **7b-chatAE06**: Same as above. Testing training more Lora layers.
 
 ## QG
 * 7b-chatQG00: Relatively specific unoptimized prompt. No custom tokens. Produces decent questions. Spits out a ton of "do not confuse w/ vs #"

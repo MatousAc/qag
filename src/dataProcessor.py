@@ -124,6 +124,8 @@ class DataProcessor(QAGBase):
       df = dataset['train'].to_pandas()
     else: df = pd.read_csv(self.source)
     df = df[['answer', 'question','sentence', 'quality']]
+    qualityThreshold = int(self.cp['dataFormatter']['qualityThreshold'])
+    df = df[df['quality'] > qualityThreshold]
 
     # group answers by verse and remove near duplicates
     sep = ' <sep> '

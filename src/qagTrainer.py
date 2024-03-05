@@ -74,8 +74,8 @@ class QAGTrainer(QAGBase):
       bias = self.hyp['bias'],
       # causal lm means the lm only sees tokens to the left of what it's predicting
       task_type = 'CAUSAL_LM',
-      # enable more lora layers?
-      # target_modules = [f'{l}_proj' for l in self.hyp['loraLayers']] # fixme: uncomment soon
+      # enable more lora layers
+      target_modules = [f'{l}_proj' for l in self.hyp['loraLayers']]
     )
   
   def loadModel(self):
