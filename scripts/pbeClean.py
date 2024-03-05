@@ -13,7 +13,7 @@ lsb['categories'] = lsb['categories'].str.lower()
 bab = pd.read_csv(f'{dataSrc}/bible-questions.csv', sep=';')
 bab = bab[(bab['chapter'] == bab['endChapter']) | (bab['endChapter'].isnull())] # rm questions that span multiple chapters
 bab = bab.drop(columns=['id', 'type', 'endBook', 'dateCreated', 'endChapter']) # unnecessary columns
-bab['source'] = 'Babienco'; bab['quality'] = np.nan
+bab['source'] = 'Babienco'; bab['quality'] = 8;
 
 # 1. trim whitespace, rm consecutive spaces
 lsb = lsb.replace(r'^ +| +$', r'', regex=True).replace(r'\s+', ' ', regex=True)
@@ -22,9 +22,12 @@ bab = bab.replace(r'^ +| +$', r'', regex=True).replace(r'\s+', ' ', regex=True)
 lsb = lsb.drop_duplicates(subset=['refQuestion', 'answer'])
 bab = bab.drop_duplicates(subset=['question', 'answer', 'book', 'chapter', 'verse', 'endVerse'])
 # 3. filter to remove FITB && T/F
-fitbRe = '_|fitb|fill in the blanks|t/f|true or false/i' # ignore case
-lsb = lsb[lsb['refQuestion'].str.contains(fitbRe) == False]
-bab = bab[bab['question'].str.contains(fitbRe) == False]
+fitbTF = r'_|fitb|fill in the blanks|t\/f|true or false'
+lsb = lsb[lsb['refQuestion'].str.contains(fitbTF, regex=True, flags=re.IGNORECASE) == False]
+bab = bab[bab['question'].str.contains(fitbTF, regex=True, flags=re.IGNORECASE) == False]
+ansTF = r'^(true|false)'
+lsb = lsb[lsb['answer'].str.contains(ansTF, regex=True, flags=re.IGNORECASE) == False]
+bab = bab[bab['answer'].str.contains(ansTF, regex=True, flags=re.IGNORECASE) == False]
 # 4. drop rows with missing references, questions, or answers
 lsb = lsb.dropna(subset=['refQuestion', 'answer'])
 bab = bab.dropna(subset=['question', 'answer', 'book', 'chapter', 'verse'])
