@@ -69,37 +69,55 @@ class DataProcessor(QAGBase):
     # save
     data.to_csv(self.destination, index=False)
 
-  def aeDeduplicate(self, answers):
+  def aeDeduplicate(self, answers, targetCount = 7):
     '''Set-based deduplication of similar answers'''
+    answers = list(answers)
+    # remove answers longer than 20 words
+    for answer in answers:
+      if len(answer.split()) > 20: answers.remove(answer)
+
     def normAns(text):
+      '''Reduces text to basic words'''
       text = text.lower()
       text = re.sub(r'\((\d{1,3})\) ', '', text) # point marker removal
+      # ignore punctuation
       text = text.translate(str.maketrans("", "", string.punctuation))
       return text
     
-    def areSimilar(text1, text2):
-      # Split texts into words
+    def areSimilar(text1, text2, threshold = 0.7):
+      '''Determines whether two answers are similar'''
+      # split texts into words
       words1 = set(normAns(text1).split())
       words2 = set(normAns(text2).split())
+      # answers are not similar if their length difference is
+      # more than 50% of the smaller answer and more than 3 words
       len1 = len(words1); len2 = len(words2)
       maxLen = max(len1, len2); minLen = min(len1, len2)
-      # answers are not similar if they are more than 3 words apart
-      # or if the difference is larger than 40% of the smaller answer
-      if abs(len1 - len2) > max(int(minLen * 0.4), 3): return False
-      # answers are similar if they intersect 70% of the time or only
-      # differ by one word for smaller answers
-      threshold = max(maxLen - 1, 1) if maxLen < 5 else int(0.7 * maxLen)
-      return len(words1.intersection(words2)) >= threshold
+      if abs(len1 - len2) > max(int(minLen * 0.5), 3): return False
+      # answers are similar if they intersect 'threshold' percent of
+      # the time or only differ by one word for smaller answers
+      maxNumSimilarWords = max(maxLen - 1, 1) if maxLen < 5 else int(threshold * maxLen)
+      return len(words1.intersection(words2)) >= maxNumSimilarWords
 
-    # rm near or full duplicates
-    uniqueElems = set()
-    for elem in answers:
-        isDuplicate = any(areSimilar(elem, uniqueElem) for uniqueElem in uniqueElems)
+    def dedupLoop(dupElems, threshold):
+      '''Performs a round of deduplication at threshold'''
+      uniqueElems = set()
+      for elem in dupElems:
+        isDuplicate = any(areSimilar(elem, uniqueElem, threshold) for uniqueElem in uniqueElems)
         if not isDuplicate: uniqueElems.add(elem)
-    return uniqueElems
+      return uniqueElems
+    
+    # rm near or full duplicates
+    threshold = 0.7
+    uniqueAnswers = dedupLoop(answers, threshold)
+    while len(uniqueAnswers) > targetCount and threshold > 0.2:
+      uniqueAnswers = dedupLoop(uniqueAnswers, threshold)
+      threshold -= 0.1
+    return uniqueAnswers
 
   def makeAE(self):
-    '''Aggregates verses to get AE data'''
+    '''Aggregates verses and deduplicates
+    answers to get AE data'''
     # load json of csv
     if ".csv" not in self.source:
       dataset = load_dataset(self.source)
@@ -110,12 +128,13 @@ class DataProcessor(QAGBase):
     # group answers by verse and remove near duplicates
     sep = ' <sep> '
     grouped = df.groupby('sentence').agg({
-      'answer': lambda x: sep.join(self.aeDeduplicate(x)),
+      'answer': lambda x: sep.join(self.aeDeduplicate(x, 10)),
       'quality': 'mean'
     }).reset_index()
     grouped['count'] = grouped['answer'].apply(lambda x: x.count(sep) + 1)
     grouped.rename(columns={'question': 'count'}, inplace=True)
-    grouped = grouped[grouped['count'] > 2] # train model to produce 3+ ans
+    # train model to produce 3-12 ans
+    grouped = grouped[(grouped['count'] > 2) & (grouped['count'] < 13)]
     dataset = Dataset.from_pandas(grouped.reset_index(drop=True))
     if not self.quiet: 
       print(grouped.head())

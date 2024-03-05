@@ -26,4 +26,5 @@ SQuAD/
 customData/
 data/
 !nkjv.csv
-src/log/*.txt
+
+src/log/
