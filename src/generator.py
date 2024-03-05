@@ -66,7 +66,7 @@ class Generator(QAGBase):
       # print(output)
       self.timer.stop() # model work is done @ this point
       # only return what was generated
-      response = output.split(self.cp['dataFormatter'][f'{self.modelType}RespKey{pipelineType}'])[1]
+      response = output.split(self.cp['dataFormatter'][f'respKey{pipelineType}'])[1]
       return response
 
   def generateQA(self, verse: Verse):
@@ -78,7 +78,7 @@ class Generator(QAGBase):
       return str
     qa = []
     # AE
-    aeInput = self.cp['dataFormatter'][f'{self.modelType}RespTempleAE']
+    aeInput = self.cp['dataFormatter'][f'respTempleAE']
     aeInput = aeInput.replace('<context>', verse.text)
     aeInput = aeInput.replace('<answer>', '')
     aeInput = aeInput.strip()
@@ -90,7 +90,7 @@ class Generator(QAGBase):
     # QG
     self.timer.model = self.pipelineFolders['QG']
     for answer in answers:
-      qgInput = self.cp['dataFormatter'][f'{self.modelType}RespTempleQG']
+      qgInput = self.cp['dataFormatter'][f'respTempleQG']
       qgInput = qgInput.replace('<context>', verse.text)
       qgInput = qgInput.replace('<answer>', answer)
       qgInput = qgInput.replace('<question>', '')

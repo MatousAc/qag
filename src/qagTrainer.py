@@ -1,8 +1,9 @@
 # import libraries we need
-import os, sys, torch
+import os, sys, torch, nltk, numpy as np
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, TrainingArguments
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from peft import LoraConfig, PeftModel
+from evaluate import load
 from qagBase import QAGBase
 from dataFormatter import DataFormatter
 from dataProcessor import DataProcessor
@@ -10,37 +11,42 @@ from timeLogger import TimeLogger
 
 class QAGTrainer(QAGBase):
   def configure(self):
-    self.lora = self.cp['lora']
+    self.hyp = self.cp['hyperparameters']
     self.trainArgs = self.cp['trainArgs']
     self.modelCf = self.cp['model']
-    
-    # configure wandb naming
-    os.environ["WANDB_PROJECT"] = self.trainFor
-    self.runName = os.path.split(self.outputDir)[1] # run name = output folder
-    
     self.configureTraining()
     self.timer = TimeLogger()
+    self.metric = load("rouge")
 
   def configureTraining(self):
     '''Configures training arguments, quantization, and LoRA config.'''
     # if we're testing, we always want to save and evaluate after reaching maxSteps
+    # configure wandb naming
+    os.environ["WANDB_PROJECT"] = self.trainFor
     self.trainingArgs = TrainingArguments(
-      output_dir = self.outputDir,
-      per_device_train_batch_size = int(self.trainArgs['perDeviceTrainBatchSize']),
-      gradient_accumulation_steps = int(self.trainArgs['gradientAccumulationSteps']),
-      learning_rate = float(self.trainArgs['learningRate']),
-      logging_steps = int(self.trainArgs['stepSize']),
-      num_train_epochs = float(self.trainArgs['epochs']),
+      # tunable hyperparameters
+      learning_rate = float(self.hyp['learningRate']),
+      weight_decay = float(self.hyp['weightDecay']),
+      num_train_epochs = float(self.hyp['epochs']),
+      # general
       max_steps = 1 if self.mode == 'test' else 0, # 1 step for tests, 0 does not override epoch number
-      logging_dir = self.outputDir + '/logs',
-      save_strategy = self.trainArgs['saveAndEvalStrategy'],
-      save_steps = int(self.trainArgs['stepSize']),
-      evaluation_strategy = self.trainArgs['saveAndEvalStrategy'],
-      eval_steps = int(self.trainArgs['stepSize']),
+      predict_with_generate = self.trainArgs['predictWithGenerate'] == 'True',
+      # wandb setup
       # SFTTrainer auto reports to wandb if installed. put 'none' below to turn off
       report_to = 'none' if self.mode == 'test' else 'wandb',
-      run_name = self.runName,
+      run_name = os.path.split(self.outputDir)[1], # name = output folder,
+      # GPU settings
+      per_device_train_batch_size = int(self.trainArgs['perDeviceTrainBatchSize']),
+      gradient_accumulation_steps = int(self.trainArgs['gradientAccumulationSteps']),
       eval_accumulation_steps = int(self.trainArgs['evalAccumulationSteps']),
+      # output settings
+      output_dir = self.outputDir,
+      logging_dir = self.outputDir + '/logs',
+      logging_steps = int(self.trainArgs['stepSize']),
+      save_strategy = self.trainArgs['saveStrategy'],
+      save_steps = int(self.trainArgs['stepSize']),
+      evaluation_strategy = self.trainArgs['evalStrategy'],
+      eval_steps = int(self.trainArgs['stepSize']),
       save_total_limit = int(self.trainArgs['saveTotalLimit']),
       load_best_model_at_end = self.trainArgs['loadBestModelAtEnd'] == 'True',
     )
@@ -53,11 +59,15 @@ class QAGTrainer(QAGBase):
       bnb_4bit_compute_dtype = torch.float16
     )
     
+    # parameter-efficient fine-tuning (PEFT) w/ low rank adapter (LoRA)
+    # trains the difference in weights Δh on the side of feed-forward
+    # layers (FFW). makes for faster, lighter training. see https://rb.gy/9gor5
+    # https://huggingface.co/docs/peft/conceptual_guides/lora#common-lora-parameters-in-peft
     self.loraConfig = LoraConfig(
-      lora_alpha = int(self.lora['loraAlpha']),
-      lora_dropout = float(self.lora['loraDropout']),
-      r = int(self.lora['r']),
-      bias = self.lora['bias'],
+      lora_alpha = int(self.hyp['loraAlpha']),
+      lora_dropout = float(self.hyp['loraDropout']),
+      r = int(self.hyp['r']),
+      bias = self.hyp['bias'],
       # causal lm means the lm only sees tokens to the left of what it's predicting
       task_type = 'CAUSAL_LM',
       # enable more lora layers
@@ -94,6 +104,29 @@ class QAGTrainer(QAGBase):
     if not self.quiet: print(f'Added {numAddedToks} tokens.')
     self.baseModel.resize_token_embeddings(len(self.tokenizer))
   
+  def computeMetrics(self, eval_pred):
+    predictions, labels = eval_pred
+    decoded_preds = self.tokenizer.batch_decode(predictions, skip_special_tokens=True)
+    # Replace -100 in the labels as we can't decode them.
+    labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
+    decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+    
+    # Rouge expects a newline after each sentence
+    decoded_preds = ["\n".join(nltk.sent_tokenize(pred.strip())) for pred in decoded_preds]
+    decoded_labels = ["\n".join(nltk.sent_tokenize(label.strip())) for label in decoded_labels]
+    
+    # Note that other metrics may not have a `use_aggregator` parameter
+    # and thus will return a list, computing a metric for each sentence.
+    result = self.metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True, use_aggregator=True)
+    # Extract a few results
+    result = {key: value * 100 for key, value in result.items()}
+    
+    # Add mean generated length
+    prediction_lens = [np.count_nonzero(pred != self.tokenizer.pad_token_id) for pred in predictions]
+    result["gen_len"] = np.mean(prediction_lens)
+    
+    return {k: round(v, 4) for k, v in result.items()}
+  
   def train(self):
     '''Sets up and conducts fine-tuning'''
     collator = None # by passing None, we use the default collator
@@ -116,6 +149,8 @@ class QAGTrainer(QAGBase):
       data_collator = collator,
       # pass custom eval here
       compute_metrics = None, # default to 'computeAccuracy'
+      # compute_metrics = self.computeMetrics,
+      # compute_metrics=compute_metrics if training_args.predict_with_generate else None,
     )
     # pass in resume_from_checkpoint=True to resume from a checkpoint
     # click on wandb.ai link for training info

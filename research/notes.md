@@ -3,14 +3,16 @@ The best models so far are emboldend
 ## AE
 * 7b-chatAE00: Specific prompt. No custom tokens. Produces relatively good extracted answers, but sometimes duplicated ones. Does not stop short.
 * 7b-chatAE01: Specific prompt. No custom tokens. Further de-duplicated data. Produces decent answers w/ less duplication. Does not stop short.
-* 7b-chatAE02: Specific prompt. Custom tokens. Produces trash. Does not stop short.
+* 7b-chatAE02: Specific prompt. Custom tokens. Latest data w/o the "Do not confuse with . . ." Produces trash. Does not stop short.
 * **7b-chatAE03**: Less specific prompt. No custom tokens. Produces good answers. Does not stop short.
+* 7b-chatAE04: Unspecific prompt. No custom tokens. Yet to be tested.
 
 ## QG
 * 7b-chatQG00: Relatively specific unoptimized prompt. No custom tokens. Produces decent questions. Spits out a ton of "do not confuse w/ vs #"
 * 7b-chatQG01: Relatively specific unoptimized prompt. No custom tokens. Removed "do not confuse" from training data. Produces good questions, though they are a bit short. Spits out trash after the question.
 * 7b-chatQG02: Relatively specific unoptimized prompt. Custom tokens. Produces decent questions, though those that are longer are too long. Spits out trash after the question.
 * **7b-chatQG03**: Unspecific prompt. No custom tokens. Produces good questions 80% of the time but then continues with trash.
+* 7b-chatQG04: Unspecific prompt. No custom tokens. Trained on max amount of data. Yet to be tested.
 
 
 
@@ -20,14 +22,14 @@ The best models so far are emboldend
 the \<s> at the start of each fo the following should not actually have the '\\'
 ## Text-completion models 
 ### AE
-\<s> ### Here is a context sentence. ### Verse: <context> ### Here are seven nouns and noun phrases in a comma-separated list that appear in this Bible verse:
-## Text-completion models QAG
-
+\<s> ### Here is a context verse. ### Verse: <context> ### Here are seven nouns and noun phrases in a comma-separated list that appear in this Bible verse:
 
 ## Chat Models
 Examples of how to format:
-https://github.com/facebookresearch/llama/blob/main/example_chat_completion.py
-https://github.com/facebookresearch/llama/issues/481
+* https://github.com/facebookresearch/llama/blob/main/example_chat_completion.py
+* https://github.com/facebookresearch/llama/issues/481
+
+I won't actually format it like that because I don't need a chat-like response.
 
 \<s>[INST] <<SYS>>\n{system prompt}\n<</SYS>>\n\n{1st user prompt} [/INST]
 

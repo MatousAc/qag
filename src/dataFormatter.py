@@ -6,8 +6,8 @@ class DataFormatter(QAGBase):
   def configure(self):
     self.dfCf = self.cp['dataFormatter']
     self.delim = self.dfCf['delim']
-    self.respTemple = self.dfCf[f'{self.modelType}RespTemple{self.trainFor}']
-    self.respKey = self.dfCf[f'{self.modelType}RespKey{self.trainFor}']
+    self.respTemple = self.dfCf[f'respTemple{self.trainFor}']
+    self.respKey = self.dfCf[f'respKey{self.trainFor}']
     self.load()
     if (self.cp['model']['packing'] == 'True'):
       self.getExamples = self.formatInput
@@ -68,7 +68,7 @@ class DataFormatter(QAGBase):
     match sampleMode:
       case 'generate':
         input()
-        templ = self.dfCf[f'{self.modelType}RespTemple{self.trainFor}']
+        templ = self.respTemple
       case 'manual':
         templ = input(f'> ')
         print('↓')
