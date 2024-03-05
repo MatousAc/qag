@@ -17,7 +17,10 @@ class DataFormatter(QAGBase):
     '''loads dataset'''
     if not self.quiet: print('Loading Data . . .')
     dsDict = load_dataset(self.paths['data'])
-    
+    # filter by quality
+    threshold = int(self.dfCf['qualityThreshold'])
+    dsDict = dsDict.filter(lambda row: row['quality'] >= threshold)
+
     if len(dsDict) == 1:
       if not self.quiet: print('Splitting data . . .')
       key = [split for split in dsDict][0]
@@ -30,7 +33,7 @@ class DataFormatter(QAGBase):
     self.trainDataset = dsDict['train']
     self.evalDataset = dsDict['test']
 
-    if not self.quiet: print(self.trainDataset[0])
+    if not self.quiet: print(f'''Loaded {len(self.trainDataset)} training and {len(self.evalDataset)} evaluation examples above at or above a quality of {threshold}''')
 
   def unpackedProcessing(self, examples):
     '''processes all data for training input'''
