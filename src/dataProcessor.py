@@ -201,5 +201,3 @@ if __name__ == '__main__':
     case 'csvtojsonl': dp.csvToJsonl()
     case 'jsonltocsv': dp.jsonlToCsv()
     case 'none' | _: pass
-
-

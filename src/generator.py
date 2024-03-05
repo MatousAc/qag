@@ -1,5 +1,5 @@
 # import libraries we need
-import torch, os, sys, re
+import torch, sys
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer
 from qagBase import QAGBase
 from dataFormatter import DataFormatter
@@ -43,17 +43,14 @@ class Generator(QAGBase):
     if self.oldModels: ending = input(f'{pipelineType} model number: ')
     else: ending = str(self.getLatestModelNumber(pipelineType))
     ending = ending.zfill(2)
-    location = os.path.normpath(
-      f'{self.basePath}/models/output/norm/' + # base
-      f'{self.modelSize}b-{self.modelType}{pipelineType}{ending}/' + # folder
-      f'checkpoint-1000' # checkpoint
-    )
-    folder = os.path.split(os.path.split(location)[0])[1]
-    self.pipelineFolders[pipelineType] = folder
-    if not self.quiet: print(f'Loading {pipelineType} model from {folder}')
+    modeFolder = f'{self.basePath}/models/output/norm/' # mode folder
+    modelFolder = f'{self.modelSize}b-{self.modelType}{pipelineType}{ending}/' # folder
+    checkpointLocation = self.getLatestCheckpointPath(modeFolder + modelFolder)
+    self.pipelineFolders[pipelineType] = modelFolder
+    if not self.quiet: print(f'Loading {pipelineType} model from {modelFolder}')
     # load and name adapters for later use individuallly
     # merging adapters results in poor performance
-    _ = self.model.load_adapter(location, adapter_name=pipelineType)
+    _ = self.model.load_adapter(checkpointLocation, adapter_name=pipelineType)
 
   def infer(self, inferenceInput: str, pipelineType: str):
     self.timer.start()
@@ -73,7 +70,7 @@ class Generator(QAGBase):
     def smartUnCapitalize(str):
       if str.split()[0] in [
         'Who', 'What', 'When', 'Where', 'Why', 'Which', 
-        'How', 'The', 'That', 'A'
+        'Whose','How', 'The', 'That', 'A'
       ]: str = str[0].lower() + str[1:]
       return str
     qa = []
@@ -86,6 +83,7 @@ class Generator(QAGBase):
     self.timer.model = self.pipelineFolders['AE']
     answers = self.infer(aeInput, 'AE').split('<sep>')[:-1]
     answers = [a.strip() for a in answers] # clean whitespace
+    print(answers)
     answers = self.dp.aeDeduplicate(answers)
     # QG
     self.timer.model = self.pipelineFolders['QG']

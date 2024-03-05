@@ -206,13 +206,13 @@ class QAGTrainer(QAGBase):
     self.timer.model = self.paths["base"].split("/")[-1]
     self.timer.mode = 'base'
     if not useBase:
-      loraLocation = f'{self.latestModelDir}/checkpoint-{self.maxSteps}'
-      model = PeftModel.from_pretrained(self.baseModel, loraLocation)
-      self.tokenizer = AutoTokenizer.from_pretrained(loraLocation)
+      checkpointLocation = self.getLatestCheckpointPath(self.latestModelDir)
+      model = PeftModel.from_pretrained(self.baseModel, checkpointLocation)
+      self.tokenizer = AutoTokenizer.from_pretrained(checkpointLocation)
       model.resize_token_embeddings(len(self.tokenizer))
       self.timer.model = self.latestModelDir.split("/")[-1]
       self.timer.mode = self.mode
-      print(f'Inference using {self.latestModelDir}')
+      print(f'Inference using {checkpointLocation}')
       
     self.printHeader('Testing Loop')
     print('Ctrl+C to exit')

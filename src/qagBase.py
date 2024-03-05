@@ -40,9 +40,15 @@ class QAGBase:
     the models/mode directory if one is present. Else -1'''
     if not pipelineType: pipelineType = self.trainFor
     parent = self.paths['output'][:self.paths['output'].find(self.mode)] + self.mode
-    subfolders = [f.path for f in os.scandir(parent) if f.is_dir() and pipelineType in f.name]
+    subfolders = [f.name for f in os.scandir(parent) if f.is_dir() and pipelineType in f.name]
     subfolderNumbers = [int(f[-2:]) for f in subfolders]
     return max(subfolderNumbers) if len(subfolders) else -1
+  
+  def getLatestCheckpointPath(self, modelPath):
+    prefix = 'checkpoint-'
+    subfolders = [f.name for f in os.scandir(modelPath) if f.is_dir()]
+    subfolderNumbers = [int(f.replace(prefix, '')) for f in subfolders]
+    return os.path.normpath(f'{modelPath}/{prefix}{max(subfolderNumbers)}')
 
   def configure(self):
     '''Configuration for derived class'''
