@@ -4,18 +4,16 @@ The best models so far are emboldend
 * 7b-chatAE00: Specific prompt. No custom tokens. Produces relatively good extracted answers, but sometimes duplicated ones. Does not stop short.
 * 7b-chatAE01: Specific prompt. No custom tokens. Further de-duplicated data. Produces decent answers w/ less duplication. Does not stop short.
 * 7b-chatAE02: Specific prompt. Custom tokens. Latest data w/o the "Do not confuse with . . ." Produces trash. Does not stop short.
-* **7b-chatAE03**: Less specific prompt. No custom tokens. Produces good answers. Does not stop short.
-* 7b-chatAE04: Unspecific prompt. No custom tokens.Trained on max data. Yet to be tested.
-* 7b-chatAE05: Unspecific prompt. No custom tokens. Testing cutom eval metrics. Yet to be tested
+* 7b-chatAE03: Less specific prompt. No custom tokens. Produces good answers. Does not stop short.
+* 7b-chatAE04: Unspecific prompt. No custom tokens. Trained on max data. Does just as well as above.
+* **7b-chatAE05**: Unspecific prompt. No custom tokens. Testing cutom eval metrics. Extracts good answers
 
 ## QG
 * 7b-chatQG00: Relatively specific unoptimized prompt. No custom tokens. Produces decent questions. Spits out a ton of "do not confuse w/ vs #"
 * 7b-chatQG01: Relatively specific unoptimized prompt. No custom tokens. Removed "do not confuse" from training data. Produces good questions, though they are a bit short. Spits out trash after the question.
 * 7b-chatQG02: Relatively specific unoptimized prompt. Custom tokens. Produces decent questions, though those that are longer are too long. Spits out trash after the question.
-* **7b-chatQG03**: Unspecific prompt. No custom tokens. Produces good questions 80% of the time but then continues with trash.
-* 7b-chatQG04: Unspecific prompt. No custom tokens. Trained on max amount of data. Yet to be tested.
-
-
+* 7b-chatQG03: Unspecific prompt. No custom tokens. Produces good questions 80% of the time but then continues with trash.
+* **7b-chatQG04**: Unspecific prompt. No custom tokens. Trained on max amount of data. Produces more relevant, correct, and sensible questions than trainings with partial data. Definitely a bit better than before. Also produces less trash than before.
 
 
 
