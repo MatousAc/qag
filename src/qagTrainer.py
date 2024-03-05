@@ -70,8 +70,8 @@ class QAGTrainer(QAGBase):
       bias = self.hyp['bias'],
       # causal lm means the lm only sees tokens to the left of what it's predicting
       task_type = 'CAUSAL_LM',
-      # enable more lora layers
-      # target_modules=["q_proj", "v_proj"] # fixme: uncomment soon
+      # enable more lora layers?
+      # target_modules = [f'{l}_proj' for l in self.hyp['loraLayers']] # fixme: uncomment soon
     )
   
   def loadModel(self):
@@ -93,7 +93,7 @@ class QAGTrainer(QAGBase):
     # add custom/padding tokens
     if (self.modelCf['addCustomTokens'] == 'True'): self.addCustomTokens()
     else: self.tokenizer.pad_token = self.tokenizer.eos_token
-  
+
   def addCustomTokens(self):
     '''Adds custom tokens to model. Don't use this option.'''
     specialTokens = {
@@ -149,7 +149,7 @@ class QAGTrainer(QAGBase):
       data_collator = collator,
       # pass custom eval here
       compute_metrics = None, # default to 'computeAccuracy'
-      # compute_metrics = self.computeMetrics,
+      # compute_metrics = self.computeMetrics, # fixme: try this soon
       # compute_metrics=compute_metrics if training_args.predict_with_generate else None,
     )
     # pass in resume_from_checkpoint=True to resume from a checkpoint
