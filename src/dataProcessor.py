@@ -105,12 +105,13 @@ class DataProcessor(QAGBase):
       dataset = load_dataset(self.source)
       df = dataset['train'].to_pandas()
     else: df = pd.read_csv(self.source)
-    df = df[['answer', 'question','sentence']]
+    df = df[['answer', 'question','sentence', 'quality']]
 
     # group answers by verse and remove near duplicates
     sep = ' <sep> '
     grouped = df.groupby('sentence').agg({
-      'answer': lambda x: sep.join(self.aeDeduplicate(x))
+      'answer': lambda x: sep.join(self.aeDeduplicate(x)),
+      'quality': 'mean'
     }).reset_index()
     grouped['count'] = grouped['answer'].apply(lambda x: x.count(sep) + 1)
     grouped.rename(columns={'question': 'count'}, inplace=True)
