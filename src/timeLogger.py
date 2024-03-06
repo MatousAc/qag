@@ -1,8 +1,8 @@
 # import libraries we need
-from qagBase import QAGBase
+from configBase import ConfigBase
 import time, os
 
-class TimeLogger(QAGBase):
+class TimeLogger(ConfigBase):
   mode = ''
   model = ''
 

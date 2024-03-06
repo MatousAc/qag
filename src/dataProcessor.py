@@ -1,9 +1,11 @@
 import pandas as pd, sys, random, csv, json, string, re
 from datasets import load_dataset, Dataset
-from qagBase import QAGBase
+from configBase import ConfigBase
 from verse import Verse
 
-class DataProcessor(QAGBase):
+class DataProcessor(ConfigBase):
+  '''Handles answer deduplication, some data cleaning,
+  data reformattion, and getting Bible verse texts.'''
   def configure(self):
     self.source = self.paths['dpSource']
     self.destination = self.paths['dpDest']

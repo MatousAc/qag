@@ -3,20 +3,16 @@ import os, sys, torch, numpy as np, evaluate
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, Seq2SeqTrainingArguments
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from peft import LoraConfig, PeftModel
-from qagBase import QAGBase
-from dataFormatter import DataFormatter
-from dataProcessor import DataProcessor
-from timeLogger import TimeLogger
+from modelHandler import ModelHandler
 
-class QAGTrainer(QAGBase):
-  def configure(self):
+class Trainer(ModelHandler):
+  '''A class that handles model training, evaluation during training,
+  and some minimal inference after trainings.'''
+  def startup(self):
     self.hyp = self.cp['hyperparameters']
     self.trainArgs = self.cp['trainArgs']
-    self.modelCf = self.cp['model']
     self.genEval = self.trainArgs['generativeEval'] == 'True'
-
     self.configureTraining()
-    self.timer = TimeLogger()
 
   def configureTraining(self):
     '''Configures training arguments, quantization, and LoRA config.'''
@@ -159,10 +155,10 @@ class QAGTrainer(QAGBase):
     print(f'Inference using {self.checkpointLocation}')
     # takes: predictions (list of str): translations to score.
     #        references (list of list of str|list of str): references for each translation.
-    inputs, labels = self.dataFormatter.getEvalInputs()
+    inputs, labels = self.df.getEvalInputs()
     preds = []
     for inp in inputs: preds.append(self.infer(model, inp))
-    preds = [pred.split(self.dataFormatter.respKey)[1].strip() for pred in preds]
+    preds = [pred.split(self.df.respKey)[1].strip() for pred in preds]
     print(inputs)
     print(preds)
     result = {
@@ -181,16 +177,16 @@ class QAGTrainer(QAGBase):
     collator = None # by passing None, we use the default collator
     if (self.modelCf['optimizeCompletion'] == 'True'):
       collator = DataCollatorForCompletionOnlyLM(
-        self.dataFormatter.respKey, tokenizer=self.tokenizer
+        self.df.respKey, tokenizer=self.tokenizer
       )
     
     # use the SFTTrainer from HuggingFace's trl library
     trainer = SFTTrainer(
       model=self.baseModel,
-      train_dataset = self.dataFormatter.trainDataset,
-      eval_dataset = self.dataFormatter.evalDataset,
+      train_dataset = self.df.trainDataset,
+      eval_dataset = self.df.evalDataset,
       peft_config = self.loraConfig,
-      formatting_func = self.dataFormatter.getExamples,
+      formatting_func = self.df.getExamples,
       max_seq_length = int(self.trainArgs['maxSeqLength']),
       tokenizer = self.tokenizer,
       args = self.trainingArgs,
@@ -210,7 +206,7 @@ class QAGTrainer(QAGBase):
   # testing the models
   def infer(self, model: AutoModelForCausalLM, inferenceInput = None):
     '''Infers with the specified model'''
-    if not inferenceInput: inferenceInput = self.dataFormatter.getInferenceInput(self.dp)
+    if not inferenceInput: inferenceInput = self.df.getInferenceInput(self.dp)
     modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
     model.eval()
     with torch.no_grad():
@@ -229,7 +225,6 @@ class QAGTrainer(QAGBase):
       
     self.printHeader('Testing Loop')
     print('Ctrl+C to exit')
-    self.dp = DataProcessor()
     try:
       while True:
         self.timer.start()
@@ -252,8 +247,7 @@ class QAGTrainer(QAGBase):
     return model
 
 if __name__ == '__main__':
-  df = DataFormatter()
-  trainer = QAGTrainer(dataFormatter=df)
+  trainer = Trainer()
   # must first loadModel()
   trainer.loadModel()
   if len(sys.argv) == 1: cmd = '-train'

@@ -1,8 +1,10 @@
 from datasets import load_dataset
-from qagBase import QAGBase
+from configBase import ConfigBase
 import random
 
-class DataFormatter(QAGBase):
+class DataFormatter(ConfigBase):
+  '''Handles training and inference data
+  loading, processing, and formatting.'''
   def configure(self):
     self.dfCf = self.cp['dataFormatter']
     self.delim = self.dfCf['delim']
@@ -50,7 +52,7 @@ class DataFormatter(QAGBase):
 
   ### formatting f(x)s for input to various training phases
   def formatInput(self, example, i = 0):
-    '''Returns input for training'''
+    '''Formats an example for training'''
     # get column values from lists of strings
     if isinstance(example['sentence'], list):
       sentence = example['sentence'][i]
@@ -67,9 +69,10 @@ class DataFormatter(QAGBase):
     if self.trainFor == 'QG': templ = templ.replace('<question>', question)
     return templ.strip()
 
-  ## output
-  def getEvalInputs(self):
-    '''Used in custom NLG metrics'''
+  def getEvalInputs(self) -> tuple[list[str], list[str]]:
+    '''Processes the evaluation dataset into a prompt for
+    the model using the current training format and a label
+    (desired output). Used in custom NLG metrics.'''
     inputs = []; labels = []
     for row in self.evalDataset:
       example = self.formatInput(row).split(self.respKey)
@@ -77,7 +80,8 @@ class DataFormatter(QAGBase):
       labels.append(example[1].strip())
     return (inputs, labels)
   
-  def getInferenceInput(self, dp):
+  ## output
+  def getInferenceInput(self, dp) -> str:
     '''Returns a prompt for inference'''
     sampleMode = self.dfCf['sampleMode']
     match sampleMode:

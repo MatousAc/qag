@@ -1,6 +1,9 @@
 import re
 
 class Verse():
+  '''Represents a text from the Bible
+  that can span multiple verses. Also
+  includes context verses.'''
   # content stuff
   previous: str
   text: str

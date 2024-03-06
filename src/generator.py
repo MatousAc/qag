@@ -1,19 +1,16 @@
 # import libraries we need
 import torch, sys
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer
-from qagBase import QAGBase
-from dataFormatter import DataFormatter
-from dataProcessor import DataProcessor
-from timeLogger import TimeLogger
+from modelHandler import ModelHandler
 from verse import Verse
 
-class Generator(QAGBase):
-  def configure(self):
-    self.modelCf = self.cp['model']
+class Generator(ModelHandler):
+  '''Handles QAG in a pipelined fashion using potentially different
+  adapters. Handles model output post processing. Also handles final
+  model evaluation.'''
+  def startup(self):
     self.oldModels = False
-    self.timer = TimeLogger()
     self.timer.mode = 'norm'
-    self.dp = DataProcessor()
     self.pipelineFolders = {
       'AE' : '',
       'QG' : ''
@@ -130,8 +127,7 @@ class Generator(QAGBase):
       return self.dp.getRandomVerse()
 
 if __name__ == '__main__':
-  df = DataFormatter()
-  generator = Generator(dataFormatter=df)
+  generator = Generator()
   if len(sys.argv) == 1: cmd = '-latest'
   else: cmd = sys.argv[1]
   match cmd.replace('-', '').lower():

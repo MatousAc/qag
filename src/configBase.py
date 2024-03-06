@@ -1,7 +1,9 @@
 import os, sys
 from configparser import ConfigParser, ExtendedInterpolation
 
-class QAGBase:
+class ConfigBase:
+  '''A base class for all classes in src/. Sets up common
+  configuration and basic utility f(x)s.'''
   def __init__(self, configFilePath = '/src/qag.ini', dataFormatter = None):
     # get repo base path
     repo = 'qag'
@@ -21,7 +23,6 @@ class QAGBase:
     # get terminal size for prettified output
     try: self.vw = os.get_terminal_size().columns
     except OSError: self.vw = 100
-    if dataFormatter: self.dataFormatter = dataFormatter
 
 
     # configure all paths to include base path
@@ -29,29 +30,6 @@ class QAGBase:
     self.paths = self.cp['paths']
     for path in self.paths:
       self.paths[path] = os.path.normpath(self.basePath + self.paths[path])
-    # increment output folder number
-    latestModelNum = self.getLatestModelNumber()
-    self.outputDir = self.paths['output'] + str(latestModelNum + 1).zfill(2)
-    self.latestModelDir = self.paths['output'] + str(latestModelNum).zfill(2)
-    self.configure()
-
-  def getLatestModelNumber(self, pipelineType: str = None):
-    '''Returns the latest AE/QG model (defaults to self.mode) in
-    the models/mode directory if one is present. Else -1'''
-    if not pipelineType: pipelineType = self.trainFor
-    parent = self.paths['output'][:self.paths['output'].find(self.mode)] + self.mode
-    subfolders = [f.name for f in os.scandir(parent) if f.is_dir() and pipelineType in f.name]
-    subfolderNumbers = [int(f[-2:]) for f in subfolders]
-    return max(subfolderNumbers) if len(subfolders) else -1
-  
-  def getLatestCheckpointPath(self, modelDir):
-    '''Returns the path of the latest checkpoint in the 
-    model directory passed, or false if DNE.'''
-    prefix = 'checkpoint-'
-    subfolders = [f.name for f in os.scandir(modelDir) if f.is_dir()]
-    if len(subfolders) == 0: return False
-    subfolderNumbers = [int(f.replace(prefix, '')) for f in subfolders]
-    return os.path.normpath(f'{modelDir}/{prefix}{max(subfolderNumbers)}')
 
   def configure(self):
     '''Configuration for derived class'''
@@ -84,5 +62,5 @@ class QAGBase:
     print(f'\n{side} {str} {side}')
 
 if __name__ == '__main__':
-  QAGBase()
+  ConfigBase()
   print("No news is good news.")
