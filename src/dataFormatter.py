@@ -51,19 +51,31 @@ class DataFormatter(QAGBase):
   ### formatting f(x)s for input to various training phases
   def formatInput(self, example, i = 0):
     '''Returns input for training'''
+    # get column values from lists of strings
+    if isinstance(example['sentence'], list):
+      sentence = example['sentence'][i]
+      answer = example['answer'][i]
+      if self.trainFor == 'QG': question = example['question'][i]
+    else:
+      sentence = example['sentence']
+      answer = example['answer']
+      if self.trainFor == 'QG': question = example['question']
+    # construct example
     templ = self.respTemple
-    templ = templ.replace('<context>', example["sentence"][i])
-    templ = templ.replace('<answer>', example["answer"][i])
-    if self.trainFor == 'QG': templ = templ.replace('<question>', example["question"][i])
+    templ = templ.replace('<context>', sentence)
+    templ = templ.replace('<answer>', answer)
+    if self.trainFor == 'QG': templ = templ.replace('<question>', question)
     return templ.strip()
 
   ## output
-  def getEvalInputs(self, numInputs):
-    '''Used in custom preprocessing of logits'''
-    inputs = []
-    for i in range(numInputs):
-      inputs.append(self.getInputSample(i))
-    return inputs
+  def getEvalInputs(self):
+    '''Used in custom NLG metrics'''
+    inputs = []; labels = []
+    for row in self.evalDataset:
+      example = self.formatInput(row).split(self.respKey)
+      inputs.append((example[0] + self.respKey).strip())
+      labels.append(example[1].strip())
+    return (inputs, labels)
   
   def getInferenceInput(self, dp):
     '''Returns a prompt for inference'''

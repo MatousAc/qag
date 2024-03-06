@@ -46,7 +46,7 @@ class QAGTrainer(QAGBase):
       # output settings
       output_dir = self.outputDir,
       logging_dir = self.outputDir + '/logs',
-      save_strategy = self.trainArgs['saveStrategy'],
+      save_strategy = 'steps' if self.mode == 'tests' else self.trainArgs['saveStrategy'],
       evaluation_strategy = self.trainArgs['evalStrategy'],
       save_steps = stepSize,
       eval_steps = stepSize,
@@ -128,10 +128,6 @@ class QAGTrainer(QAGBase):
     # we ignore the -100 tokens, as those are the prompt
     labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
     decodedLabels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-    print('Preds:')
-    print(decodedPreds)
-    print('Labels:')
-    print(decodedLabels)
     
     rouge = evaluate.load('rouge')
     bleu = evaluate.load('bleu')
@@ -145,13 +141,38 @@ class QAGTrainer(QAGBase):
       'meteor': meteor.compute(predictions=decodedPreds, references=decodedLabels)['meteor']
     }
     result = {key: value * 100 for key, value in result.items()}
-    print(result)
     
     # calculate avg generation length
     prediction_lens = [np.count_nonzero(pred != self.tokenizer.pad_token_id) for pred in preds]
     result["gen_len"] = np.mean(prediction_lens)
     result = {k: round(v, 4) for k, v in result.items()} # round for 4 decimal places
-    print("Cleaned and upscaled result:")
+    return result
+  
+  def nlgMetricsOverride(self, evalPred):
+    '''Computes Bleu, RougeL, and Meteor by loading the last
+    checkpoint's Peft Models and making predictions'''
+    # we receive a tuple of predictions and references.
+    rouge = evaluate.load('rouge')
+    bleu = evaluate.load('bleu')
+    meteor = evaluate.load('meteor')
+    model = self.getLatestCheckpoint(self.outputDir)
+    print(f'Inference using {self.checkpointLocation}')
+    # takes: predictions (list of str): translations to score.
+    #        references (list of list of str|list of str): references for each translation.
+    inputs, labels = self.dataFormatter.getEvalInputs()
+    preds = []
+    for inp in inputs: preds.append(self.infer(model, inp))
+    preds = [pred.split(self.dataFormatter.respKey)[1].strip() for pred in preds]
+    print(inputs)
+    print(preds)
+    result = {
+      'rogueL': rouge.compute(predictions=preds, references=labels, 
+                use_stemmer=True, use_aggregator=True, rouge_types=['rougeL'])['rougeL'],
+      'bleu': bleu.compute(predictions=preds, references=labels)['bleu'],
+      'meteor': meteor.compute(predictions=preds, references=labels)['meteor']
+    }
+    result = {key: value * 100 for key, value in result.items()}
+    result = {k: round(v, 4) for k, v in result.items()} # round for 4 decimal places
     print(result)
     return result
   
@@ -177,7 +198,7 @@ class QAGTrainer(QAGBase):
       data_collator = collator,
       # compute_metrics = None,
       # pass custom eval here: default to 'computeAccuracy'
-      compute_metrics = self.nlgMetrics if self.genEval else None,
+      compute_metrics = self.nlgMetricsOverride if self.genEval else None,
       preprocess_logits_for_metrics = self.preprocessLogits if self.genEval else None,
     )
     # pass in resume_from_checkpoint=True to resume from a checkpoint
@@ -187,18 +208,15 @@ class QAGTrainer(QAGBase):
     print(f'Model saved to {self.outputDir}')
 
   # testing the models
-  def inference(self, model: AutoModelForCausalLM):
+  def infer(self, model: AutoModelForCausalLM, inferenceInput = None):
     '''Infers with the specified model'''
-    inferenceInput = self.dataFormatter.getInferenceInput(self.dp)
+    if not inferenceInput: inferenceInput = self.dataFormatter.getInferenceInput(self.dp)
     modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
-    self.timer.start()
     model.eval()
     with torch.no_grad():
       tokens = model.generate(**modelInput, max_new_tokens=100)[0]
-      print(self.tokenizer.decode(tokens, skip_special_tokens=True))
-    self.timer.stop()
-    
-    print('~' * self.vw)
+      prediction = self.tokenizer.decode(tokens, skip_special_tokens=True)
+    return prediction
   
   def inferenceLoop(self, useBase = False):
     '''Loops inference with base of fine-tuned models'''
@@ -206,21 +224,32 @@ class QAGTrainer(QAGBase):
     self.timer.model = self.paths["base"].split("/")[-1]
     self.timer.mode = 'base'
     if not useBase:
-      checkpointLocation = self.getLatestCheckpointPath(self.latestModelDir)
-      model = PeftModel.from_pretrained(self.baseModel, checkpointLocation)
-      self.tokenizer = AutoTokenizer.from_pretrained(checkpointLocation)
-      model.resize_token_embeddings(len(self.tokenizer))
-      self.timer.model = self.latestModelDir.split("/")[-1]
-      self.timer.mode = self.mode
-      print(f'Inference using {checkpointLocation}')
+      model = self.getLatestCheckpoint(self.latestModelDir)
+      print(f'Inference using {self.checkpointLocation}')
       
     self.printHeader('Testing Loop')
     print('Ctrl+C to exit')
     self.dp = DataProcessor()
     try:
-      while True: self.inference(model)
+      while True:
+        self.timer.start()
+        print(self.infer(model))
+        self.timer.stop()
+        print('~' * self.vw)
     except KeyboardInterrupt: print('\rClosing\n')
     except: raise # rethrow
+
+  def getLatestCheckpoint(self, modelDir):
+    '''Returns the latest model ready for inference. If no models are
+    present in the modelDir, returns basemodel. Sets up timer.
+    Assumes no change in tokenizer from base model.'''
+    self.checkpointLocation = self.getLatestCheckpointPath(modelDir)
+    if self.checkpointLocation == False: return self.baseModel
+    model = PeftModel.from_pretrained(self.baseModel, self.checkpointLocation)
+    model.resize_token_embeddings(len(self.tokenizer))
+    self.timer.model = self.latestModelDir.split("/")[-1]
+    self.timer.mode = self.mode
+    return model
 
 if __name__ == '__main__':
   df = DataFormatter()

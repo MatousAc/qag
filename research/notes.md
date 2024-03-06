@@ -7,14 +7,17 @@ The best models so far are emboldend
 * 7b-chatAE03: Less specific prompt. No custom tokens. Produces good answers. Does not stop short.
 * 7b-chatAE04: Unspecific prompt. No custom tokens. Trained on max data. Does just as well as above.
 * **7b-chatAE05**: Unspecific prompt. No custom tokens. Testing cutom eval metrics. The generation seems to get slightly better as we go along through training, but the metrics don't change as much as I'd expect. The end result extracts good answers.
-* **7b-chatAE06**: Same as above. Testing training more Lora layers.
+* 7b-chatAE06: Same as above. Testing training more Lora layers. Results: the adapter is twice the size of the others at 256MB. 
+* 7b-chatAE07: Same as above. Testing exact same w/o more Lora layers (increased gradient accumulation steps to 10).
+* 7b-chatAE08: Same as above. Now testing w/ injection of custom evaluation metrics.
 
 ## QG
 * 7b-chatQG00: Relatively specific unoptimized prompt. No custom tokens. Produces decent questions. Spits out a ton of "do not confuse w/ vs #"
 * 7b-chatQG01: Relatively specific unoptimized prompt. No custom tokens. Removed "do not confuse" from training data. Produces good questions, though they are a bit short. Spits out trash after the question.
 * 7b-chatQG02: Relatively specific unoptimized prompt. Custom tokens. Produces decent questions, though those that are longer are too long. Spits out trash after the question.
 * 7b-chatQG03: Unspecific prompt. No custom tokens. Produces good questions 80% of the time but then continues with trash.
-* **7b-chatQG04**: Unspecific prompt. No custom tokens. Trained on max amount of data. Produces more relevant, correct, and sensible questions than trainings with partial data. Definitely a bit better than before. Also produces less trash than before.
+* 7b-chatQG04: Unspecific prompt. No custom tokens. Trained on max amount of data. Produces more relevant, correct, and sensible questions than trainings with partial data. Definitely a bit better than before. Also produces less trash than before.
+* **7b-chatQG05**: Testing w/o more Lora layers but with quality threshold 9. Produces almost no trash, but does produce several questions for each answer. The question quality is consistently high.
 
 
 

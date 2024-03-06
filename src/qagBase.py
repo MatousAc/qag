@@ -44,11 +44,14 @@ class QAGBase:
     subfolderNumbers = [int(f[-2:]) for f in subfolders]
     return max(subfolderNumbers) if len(subfolders) else -1
   
-  def getLatestCheckpointPath(self, modelPath):
+  def getLatestCheckpointPath(self, modelDir):
+    '''Returns the path of the latest checkpoint in the 
+    model directory passed, or false if DNE.'''
     prefix = 'checkpoint-'
-    subfolders = [f.name for f in os.scandir(modelPath) if f.is_dir()]
+    subfolders = [f.name for f in os.scandir(modelDir) if f.is_dir()]
+    if len(subfolders) == 0: return False
     subfolderNumbers = [int(f.replace(prefix, '')) for f in subfolders]
-    return os.path.normpath(f'{modelPath}/{prefix}{max(subfolderNumbers)}')
+    return os.path.normpath(f'{modelDir}/{prefix}{max(subfolderNumbers)}')
 
   def configure(self):
     '''Configuration for derived class'''
