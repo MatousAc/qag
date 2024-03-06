@@ -11,7 +11,7 @@ class DataFormatter(ConfigBase):
     self.respTemple = self.dfCf[f'respTemple{self.trainFor}']
     self.respKey = self.dfCf[f'respKey{self.trainFor}']
     self.load()
-    if (self.cp['model']['packing'] == 'True'):
+    if (self.cp['train']['packing'] == 'True'):
       self.getExamples = self.formatInput
     else: self.getExamples = self.unpackedProcessing
 

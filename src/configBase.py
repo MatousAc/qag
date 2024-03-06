@@ -30,6 +30,7 @@ class ConfigBase:
     self.paths = self.cp['paths']
     for path in self.paths:
       self.paths[path] = os.path.normpath(self.basePath + self.paths[path])
+    self.configure()
 
   def configure(self):
     '''Configuration for derived class'''
