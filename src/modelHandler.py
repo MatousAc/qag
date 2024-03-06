@@ -8,7 +8,6 @@ class ModelHandler(ConfigBase):
   '''A base class that sets up common settings and executes
   common functionality between the Trainer and the Generator.'''
   def configure(self):
-    self.modelCf = self.cp['model']
     # increment output folder number
     latestModelNum = self.getLatestModelNumber()
     self.outputDir = self.paths['output'] + str(latestModelNum + 1).zfill(2)

@@ -9,9 +9,9 @@ class Trainer(ModelHandler):
   '''A class that handles model training, evaluation during training,
   and some minimal inference after trainings.'''
   def startup(self):
+    self.trainConfig = self.cp['train']
     self.hyp = self.cp['hyperparameters']
-    self.trainArgs = self.cp['trainArgs']
-    self.genEval = self.trainArgs['generativeEval'] == 'True'
+    self.genEval = self.trainConfig['generativeEval'] == 'True'
     self.configureTraining()
 
   def configureTraining(self):
@@ -19,8 +19,8 @@ class Trainer(ModelHandler):
     # if we're testing, we always want to save and evaluate after reaching maxSteps
     # configure wandb naming
     os.environ["WANDB_PROJECT"] = self.trainFor
-    testSteps = int(self.trainArgs['testSteps'])
-    stepSize = testSteps if self.mode == 'test' else int(self.trainArgs['stepSize'])
+    testSteps = int(self.trainConfig['testSteps'])
+    stepSize = testSteps if self.mode == 'test' else int(self.trainConfig['stepSize'])
 
     self.trainingArgs = Seq2SeqTrainingArguments(
       # tunable hyperparameters
@@ -36,19 +36,19 @@ class Trainer(ModelHandler):
       report_to = 'none' if self.mode == 'test' else 'wandb',
       run_name = os.path.split(self.outputDir)[1], # name = output folder,
       # GPU settings
-      per_device_train_batch_size = int(self.trainArgs['perDeviceTrainBatchSize']),
-      gradient_accumulation_steps = int(self.trainArgs['gradientAccumulationSteps']),
-      eval_accumulation_steps = int(self.trainArgs['evalAccumulationSteps']),
+      per_device_train_batch_size = int(self.trainConfig['perDeviceTrainBatchSize']),
+      gradient_accumulation_steps = int(self.trainConfig['gradientAccumulationSteps']),
+      eval_accumulation_steps = int(self.trainConfig['evalAccumulationSteps']),
       # output settings
       output_dir = self.outputDir,
       logging_dir = self.outputDir + '/logs',
-      save_strategy = 'steps' if self.mode == 'tests' else self.trainArgs['saveStrategy'],
-      evaluation_strategy = self.trainArgs['evalStrategy'],
+      save_strategy = 'steps' if self.mode == 'tests' else self.trainConfig['saveStrategy'],
+      evaluation_strategy = self.trainConfig['evalStrategy'],
       save_steps = stepSize,
       eval_steps = stepSize,
       logging_steps = stepSize,
-      save_total_limit = int(self.trainArgs['saveTotalLimit']),
-      load_best_model_at_end = self.trainArgs['loadBestModelAtEnd'] == 'True',
+      save_total_limit = int(self.trainConfig['saveTotalLimit']),
+      load_best_model_at_end = self.trainConfig['loadBestModelAtEnd'] == 'True',
     )
     
     # quantized LoRA (QLoRA) - uses 4-bit normal float to lighten GPU load
@@ -91,7 +91,7 @@ class Trainer(ModelHandler):
     # load our tokenizer
     self.tokenizer = AutoTokenizer.from_pretrained(self.paths['base'])
     # add custom/padding tokens
-    if (self.modelCf['addCustomTokens'] == 'True'): self.addCustomTokens()
+    if (self.trainConfig['addCustomTokens'] == 'True'): self.addCustomTokens()
     else: self.tokenizer.pad_token = self.tokenizer.eos_token
 
   def addCustomTokens(self):
@@ -114,8 +114,9 @@ class Trainer(ModelHandler):
     # see issue: https://github.com/huggingface/transformers/issues/15466
     return logits.argmax(dim = -1)
 
-  def nlgMetrics(self, evalPred):
-    '''Computes Bleu, RougeL, and Meteor'''
+  def decodeEvalPred(self, evalPred):
+    '''Uses the evalPred object provided by the STFTrainer
+    to return predictions and labels for training evaluation.'''
     # we receive a tuple of predictions and references.
     preds, labels = evalPred
     # decode prediction tokens because custom metrics expect plain text
@@ -124,43 +125,27 @@ class Trainer(ModelHandler):
     # we ignore the -100 tokens, as those are the prompt
     labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
     decodedLabels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-    
-    rouge = evaluate.load('rouge')
-    bleu = evaluate.load('bleu')
-    meteor = evaluate.load('meteor')
-    # takes: predictions (list of str): translations to score.
-    #        references (list of list of str|list of str): references for each translation.
-    result = {
-      'rogueL': rouge.compute(predictions=decodedPreds, references=decodedLabels, 
-                use_stemmer=True, use_aggregator=True, rouge_types=['rougeL'])['rougeL'],
-      'bleu': bleu.compute(predictions=decodedPreds, references=decodedLabels)['bleu'],
-      'meteor': meteor.compute(predictions=decodedPreds, references=decodedLabels)['meteor']
-    }
-    result = {key: value * 100 for key, value in result.items()}
-    
-    # calculate avg generation length
-    prediction_lens = [np.count_nonzero(pred != self.tokenizer.pad_token_id) for pred in preds]
-    result["gen_len"] = np.mean(prediction_lens)
-    result = {k: round(v, 4) for k, v in result.items()} # round for 4 decimal places
-    return result
-  
-  def nlgMetricsOverride(self, evalPred):
-    '''Computes Bleu, RougeL, and Meteor by loading the last
-    checkpoint's Peft Models and making predictions'''
-    # we receive a tuple of predictions and references.
-    rouge = evaluate.load('rouge')
-    bleu = evaluate.load('bleu')
-    meteor = evaluate.load('meteor')
+    return (decodedPreds, decodedLabels)
+
+  def generateEvalPred(self):
+    '''Uses  the last checkpoint's Peft Models to generate
+    predictions, and uses evaluation data for labels.'''
     model = self.getLatestCheckpoint(self.outputDir)
-    print(f'Inference using {self.checkpointLocation}')
-    # takes: predictions (list of str): translations to score.
-    #        references (list of list of str|list of str): references for each translation.
     inputs, labels = self.df.getEvalInputs()
     preds = []
     for inp in inputs: preds.append(self.infer(model, inp))
     preds = [pred.split(self.df.respKey)[1].strip() for pred in preds]
-    print(inputs)
-    print(preds)
+    return (preds, labels)
+    
+  def nlgMetrics(self, evalPred):
+    '''Computes Bleu, RougeL, and Meteor'''
+    if self.trainConfig['useEvalPred'] == 'True': preds, labels = self.decodeEvalPred(evalPred)
+    else: preds, labels = self.generateEvalPred()
+    rouge = evaluate.load('rouge')
+    bleu = evaluate.load('bleu')
+    meteor = evaluate.load('meteor')
+    # takes: predictions (list of str): translations to score.
+    #        references (list of list of str|list of str): references for each translation.
     result = {
       'rogueL': rouge.compute(predictions=preds, references=labels, 
                 use_stemmer=True, use_aggregator=True, rouge_types=['rougeL'])['rougeL'],
@@ -169,13 +154,12 @@ class Trainer(ModelHandler):
     }
     result = {key: value * 100 for key, value in result.items()}
     result = {k: round(v, 4) for k, v in result.items()} # round for 4 decimal places
-    print(result)
     return result
   
   def train(self):
     '''Sets up and conducts fine-tuning'''
     collator = None # by passing None, we use the default collator
-    if (self.modelCf['optimizeCompletion'] == 'True'):
+    if (self.trainConfig['optimizeCompletion'] == 'True'):
       collator = DataCollatorForCompletionOnlyLM(
         self.df.respKey, tokenizer=self.tokenizer
       )
@@ -187,14 +171,14 @@ class Trainer(ModelHandler):
       eval_dataset = self.df.evalDataset,
       peft_config = self.loraConfig,
       formatting_func = self.df.getExamples,
-      max_seq_length = int(self.trainArgs['maxSeqLength']),
+      max_seq_length = int(self.trainConfig['maxSeqLength']),
       tokenizer = self.tokenizer,
       args = self.trainingArgs,
-      packing = self.modelCf['packing'] == 'True',
+      packing = self.trainConfig['packing'] == 'True',
       data_collator = collator,
       # compute_metrics = None,
       # pass custom eval here: default to 'computeAccuracy'
-      compute_metrics = self.nlgMetricsOverride if self.genEval else None,
+      compute_metrics = self.nlgMetrics if self.genEval else None,
       preprocess_logits_for_metrics = self.preprocessLogits if self.genEval else None,
     )
     # pass in resume_from_checkpoint=True to resume from a checkpoint
