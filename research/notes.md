@@ -6,9 +6,9 @@ The best models so far are emboldend
 * 7b-chatAE02: Specific prompt. Custom tokens. Latest data w/o the "Do not confuse with . . ." Produces trash. Does not stop short.
 * 7b-chatAE03: Less specific prompt. No custom tokens. Produces good answers. Does not stop short.
 * 7b-chatAE04: Unspecific prompt. No custom tokens. Trained on max data. Does just as well as above.
-* **7b-chatAE05**: Unspecific prompt. No custom tokens. Testing cutom eval metrics. The generation seems to get slightly better as we go along through training, but the metrics don't change as much as I'd expect. The end result extracts good answers.
-* 7b-chatAE06: Same as above. Testing training more Lora layers. Results: the adapter is twice the size of the others at 256MB. 
-* 7b-chatAE07: Same as above. Testing exact same w/o more Lora layers (increased gradient accumulation steps to 10).
+* 7b-chatAE05: Unspecific prompt. No custom tokens. Testing cutom eval metrics. The generation seems to get slightly better as we go along through training, but the metrics don't change as much as I'd expect. The end result extracts good answers.
+* **7b-chatAE06**: Same as above. Testing training more Lora layers (qvko). Results: the adapter is twice the size of the others at 256MB. Inference is not slower however. The answers produced can be slightly better than the 07 model which did not train extra layers. These answers are slightly easier to make questions for. Probably move forward without the 'o' layer, but keep training the 'k' (key layer).
+* 7b-chatAE07: Same as above. Testing exact same w/o more Lora layers (increased gradient accumulation steps to 10). Produces slightly more difficult answers than the 06 model which has trained extra layers.
 * 7b-chatAE08: Same as above. Now testing w/ injection of custom evaluation metrics.
 
 ## QG
@@ -18,6 +18,7 @@ The best models so far are emboldend
 * 7b-chatQG03: Unspecific prompt. No custom tokens. Produces good questions 80% of the time but then continues with trash.
 * 7b-chatQG04: Unspecific prompt. No custom tokens. Trained on max amount of data. Produces more relevant, correct, and sensible questions than trainings with partial data. Definitely a bit better than before. Also produces less trash than before.
 * **7b-chatQG05**: Testing w/o more Lora layers but with quality threshold 9. Produces almost no trash, but does produce several questions for each answer. The question quality is consistently high.
+* 7b-chatQG06: Testing w Lora layers (qvk) and quality threshold 9. Yet to be tested.
 
 
 

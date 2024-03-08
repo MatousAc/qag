@@ -1,0 +1,24 @@
+program: src/sweeper.py
+project: sweep
+entity: matousac
+name: sweep
+method: grid
+iterations: 20
+metric:
+  name: loss
+  goal: minimize
+parameters:
+  learningRate:
+    values: [0.0001, 0.0005]
+  weightDecay:
+    values: [0.0001, 0.0005]
+  r:
+    values: [32, 64]
+  loraAlpha:
+    values: [16, 32]
+  loraDropout:
+    values: [0.01, 0.5]
+  loraLayers:
+    values: ['qv']
+  bias:
+    values: ['none']

@@ -19,7 +19,6 @@ dist
 models*
 models/
 baseModels/
-*/wandb/
 
 # data
 SQuAD/
@@ -27,7 +26,10 @@ customData/
 data/
 !nkjv.csv
 
+# logs
+*/wandb/
 src/log/
+src/personalLogs/
 
 # secrets
 src/apiKey.txt
