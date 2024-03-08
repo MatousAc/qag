@@ -28,3 +28,7 @@ data/
 !nkjv.csv
 
 src/log/
+
+# secrets
+src/apiKey.txt
+*/apiKey.txt
