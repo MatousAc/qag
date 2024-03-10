@@ -3,24 +3,22 @@ project: sweep
 entity: matousac
 name: sweep
 method: grid
-iterations: 40
+iterations: 72
 metric:
-  name: loss
+  name: eval_loss
   goal: minimize
 parameters:
-  quality:
-    values: [7, 9]
   learningRate:
-    values: [0.0001, 0.001, 0.01, 0.1]
-  weightDecay:
     values: [0.0001, 0.01, 0.1]
   r:
-    values: [32, 64, 128, 256]
+    values: [32, 64, 128]
   loraAlpha:
-    values: [16, 32, 64, 128]
+    values: [32, 64, 128, 256]
   loraDropout:
     values: [0.01, 0.1]
-  loraLayers:
-    values: ['qv', 'qvk', 'qvko']
-  bias:
-    values: ['none']
+  # bias:
+  #   values: ['none', 'lora_only']
+  # quality:
+  #   values: [5, 7, 9]
+  # loraLayers:
+  #   values: ['qv', 'qvk', 'qvko']

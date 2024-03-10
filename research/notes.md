@@ -19,6 +19,7 @@ The best models so far are emboldend
 * 7b-chatQG04: Unspecific prompt. No custom tokens. Trained on max amount of data. Produces more relevant, correct, and sensible questions than trainings with partial data. Definitely a bit better than before. Also produces less trash than before.
 * **7b-chatQG05**: Testing w/o more Lora layers but with quality threshold 9. Produces almost no trash, but does produce several questions for each answer. The question quality is consistently high.
 * 7b-chatQG06: Testing w Lora layers (qvk) and quality threshold 9. Yet to be tested.
+* 7b-chatQG07: Like 05 but now with the paragraph_sentence context. Test this way! Yet to be tested.
 
 
 

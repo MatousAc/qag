@@ -15,13 +15,14 @@ class DataFormatter(ConfigBase):
       self.getExamples = self.formatInput
     else: self.getExamples = self.unpackedProcessing
 
-  def load(self):
+  def load(self, threshold: int = None, shuffle = True):
     '''loads dataset'''
     if not self.quiet: print('Loading Data . . .')
     dsDict = load_dataset(self.paths['data'])
     # filter by quality
-    threshold = int(self.dfCf['qualityThreshold'])
-    dsDict = dsDict.filter(lambda row: row['quality'] >= threshold)
+    if not threshold: threshold = int(self.dfCf['qualityThreshold'])
+    dsDict = dsDict.filter(lambda row: float(row['quality']) >= threshold)
+    if shuffle: dsDict = dsDict.shuffle(seed=42) # 42. why not?
 
     if len(dsDict) == 1:
       if not self.quiet: print('Splitting data . . .')
@@ -55,7 +56,7 @@ class DataFormatter(ConfigBase):
     '''Formats an example for training'''
     # get column values from lists of strings
     if isinstance(example['sentence'], list):
-      sentence = example['sentence'][i]
+      sentence = example['paragraph_sentence'][i] # FIXME paragraph_sentence -> sentence
       answer = example['answer'][i]
       if self.trainFor == 'QG': question = example['question'][i]
     else:

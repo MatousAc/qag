@@ -24,15 +24,15 @@ class Trainer(ModelHandler):
     testSteps = int(self.trainConfig['testSteps'])
 
     # if we're testing, we always want to save and evaluate after reaching maxSteps
-    stepSize = testSteps if self.mode == 'test' else int(self.trainConfig['stepSize'])
+    stepSize = testSteps if self.mode == 'test' else self.maxSteps if self.sweeping else int(self.trainConfig['stepSize'])
     self.trainingArgs = Seq2SeqTrainingArguments(
       # tunable hyperparameters
       learning_rate = hp['learningRate'],
-      weight_decay = hp['weightDecay'],
+      weight_decay = float(self.hyp['weightDecay']),
       num_train_epochs = float(self.hyp['epochs']),
       # general
       # maxSteps is 0 if not testing or sweeping. 0 does not override epoch number
-      max_steps = testSteps if self.mode == 'test' else 200 if self.sweeping else 0,
+      max_steps = testSteps if self.mode == 'test' else self.maxSteps if self.sweeping else 0,
       predict_with_generate = self.genEval,
       greater_is_better = self.genEval,
       # wandb setup
@@ -167,15 +167,15 @@ class Trainer(ModelHandler):
     # always load model first
     baseModel = self.loadModel()
     
-    # multiplex hyperparams
+    # default source of hyperparams
     hp = {
       'learningRate': float(self.hyp['learningRate']),
-      'weightDecay': float(self.hyp['weightDecay']),
       'r': int(self.hyp['r']),
       'loraAlpha': int(self.hyp['loraAlpha']),
       'loraDropout': float(self.hyp['loraDropout']),
       'loraLayers': self.hyp['loraLayers'],
       'bias': self.hyp['bias'],
+      'quality': int(self.cp['dataFormatter']['qualityThreshold']),
     }
     
     collator = None # by passing None, we use the default collator
@@ -205,17 +205,23 @@ class Trainer(ModelHandler):
     
     if self.sweeping:
       with wandb.init(config=config):
-        hp = wandb.config
+        # finetuning the best data quality
+        hp.update(wandb.config) # override vals from qag.ini
+        self.df.load(threshold = hp['quality'], shuffle = True)
         self.configureTraining(hp)
         trainer = getTrainer()
         trainer.train()
         # manually log the loss
-        df = pd.DataFrame(trainer.state.log_history)
-        # print(df)
+        log = {}
+        for dic in trainer.state.log_history: log.update(dic)
         wandb.log({
-          'loss': df['loss'][0],
-          'total_flos': df['total_flos'][2],
-          'train_loss': df['train_loss'][2]
+          'eval_loss': log['eval_loss'],
+          'loss': log['loss'],
+          'total_flos': log['total_flos'],
+          'train_loss': log['train_loss'],
+          'train_runtime': log['train_runtime'],
+          'train_samples_per_second': log['train_samples_per_second'],
+          'step': log['step'],
         })
     else:
       self.configureTraining(hp)
@@ -225,6 +231,7 @@ class Trainer(ModelHandler):
 
   def sweep(self):
     self.sweeping = True
+    self.maxSteps = 200
     config = yaml.safe_load(Path(f'sweep{self.mode.capitalize()}.yml').read_text())
     sweepId = wandb.sweep(config, project = config['project'])
     wandb.agent(sweepId, self.train, count = config['iterations'])
