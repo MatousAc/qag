@@ -196,6 +196,17 @@ class DataProcessor(ConfigBase):
     verseNumber = random.choice(df['verseNumber'].unique())
     return self.constructVerse(book, chapter, verseNumber)
 
+  def modelExecTimes(self):
+    print('executing')
+    data = pd.read_csv(self.source, sep=',')
+    data['count'] = 1
+    print(data)
+    grouped = data.groupby(['mode', 'model']).agg({
+      'count': 'sum',
+      'elapsedTime': 'mean'
+    }).reset_index()
+    print(grouped)
+    
 if __name__ == '__main__':
   dp = DataProcessor()
   match sys.argv[1].replace('-', '').lower():
@@ -204,4 +215,5 @@ if __name__ == '__main__':
     case 'pbecontextualize': dp.pbeContextualize()
     case 'csvtojsonl': dp.csvToJsonl()
     case 'jsonltocsv': dp.jsonlToCsv()
+    case 'modelexectimes': dp.modelExecTimes()
     case 'none' | _: pass
