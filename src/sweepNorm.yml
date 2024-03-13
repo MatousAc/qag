@@ -19,6 +19,6 @@ parameters:
   # bias:
   #   values: ['none', 'lora_only']
   # quality:
-  #   values: [5, 7, 9]
+  #   values: [5, 7, 8, 9]
   # loraLayers:
   #   values: ['qv', 'qvk', 'qvko']
