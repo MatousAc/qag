@@ -37,7 +37,7 @@ class TimeLogger(ConfigBase):
     elapsedSeconds = self.stopTime - self.startTime
     if log:
       f = open(self.logFile, "a")
-      f.write(f'{self.model},{self.mode},{round(elapsedSeconds, 3)}\n')
+      f.write(f'{self.model},{self.mode.replace('/', '')},{round(elapsedSeconds, 3)}\n')
       f.close()
     return elapsedSeconds
     
