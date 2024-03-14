@@ -25,7 +25,7 @@ bab = bab.drop_duplicates(subset=['question', 'answer', 'book', 'chapter', 'vers
 fitbTF = r'_|fitb|fill in the blanks|t\/f|true or false'
 lsb = lsb[lsb['refQuestion'].str.contains(fitbTF, regex=True, flags=re.IGNORECASE) == False]
 bab = bab[bab['question'].str.contains(fitbTF, regex=True, flags=re.IGNORECASE) == False]
-ansTF = r'^(true|false)'
+ansTF = r'^(?:true|false)'
 lsb = lsb[lsb['answer'].str.contains(ansTF, regex=True, flags=re.IGNORECASE) == False]
 bab = bab[bab['answer'].str.contains(ansTF, regex=True, flags=re.IGNORECASE) == False]
 # 4. drop rows with missing references, questions, or answers
@@ -54,6 +54,8 @@ cols = ['book', 'chapter', 'verse', 'endVerse', 'question', 'answer', 'points', 
 cols += cats
 lsb = lsb[cols]
 bab = bab[cols]
+# putting lsb first means that their "higher quality" questions will be chosen
+# as the row to stay when deduplicating
 data = pd.concat([lsb, bab])
 # 9. change column type as necessary
 data['endVerse'] = data['endVerse'].fillna(data['verse'])
@@ -129,7 +131,10 @@ data['question'] = data['question'].str.strip()
 # 22. replace "None" with "none" so that we can keep these values next time we load them as csv
 data['answer'] = data['answer'].str.replace(r'^None$', r'^none$', regex = True)
 # 23. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
-data = data.drop_duplicates(subset=['book', 'chapter', 'verse', 'question', 'answer'])
+data = data.drop_duplicates(
+  keep='first', # lsb generally has higher quality and we want to keep that designation
+  subset=['book', 'chapter', 'verse', 'question', 'answer']
+)
 
 
 # finally save
