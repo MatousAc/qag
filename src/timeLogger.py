@@ -17,7 +17,7 @@ class TimeLogger(ConfigBase):
     if not os.path.isfile(self.logFile):
       os.makedirs(self.logDir, exist_ok=True)
       f = open(self.logFile, "w")
-      f.write('model, mode, seconds\n')
+      f.write('model,mode,seconds\n')
     
   def start(self):
     if self.timing:
@@ -37,7 +37,7 @@ class TimeLogger(ConfigBase):
     elapsedSeconds = self.stopTime - self.startTime
     if log:
       f = open(self.logFile, "a")
-      f.write(f'{self.model}, {self.mode}, {round(elapsedSeconds, 3)}\n')
+      f.write(f'{self.model},{self.mode.replace('/', '')},{round(elapsedSeconds, 3)}\n')
       f.close()
     return elapsedSeconds
     
