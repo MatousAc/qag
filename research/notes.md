@@ -1,5 +1,5 @@
 # Trained model notes
-The best models so far are emboldend
+The best models so far are emboldened
 ## AE
 * 7b-chatAE00: Specific prompt. No custom tokens. Produces relatively good extracted answers, but sometimes duplicated ones. Does not stop short.
 * 7b-chatAE01: Specific prompt. No custom tokens. Further de-duplicated data. Produces decent answers w/ less duplication. Does not stop short.
