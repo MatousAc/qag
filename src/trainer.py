@@ -23,7 +23,7 @@ class Trainer(ModelHandler):
     os.environ['WANDB_LOG_MODEL'] = 'true'
     testSteps = int(self.trainConfig['testSteps'])
 
-    # if we're testing, we always want to save and evaluate after reaching maxSteps
+    # if we're testing or sweeping, we always want to save and evaluate after reaching maxSteps
     stepSize = testSteps if self.mode == 'test' else self.maxSteps if self.sweeping else int(self.trainConfig['stepSize'])
     self.trainingArgs = Seq2SeqTrainingArguments(
       # tunable hyperparameters
@@ -231,8 +231,8 @@ class Trainer(ModelHandler):
 
   def sweep(self):
     self.sweeping = True
-    self.maxSteps = 200
-    config = yaml.safe_load(Path(f'sweep{self.mode.capitalize()}.yml').read_text())
+    self.maxSteps = 300
+    config = yaml.safe_load(Path(f'sweep.yml').read_text())
     sweepId = wandb.sweep(config, project = config['project'])
     wandb.agent(sweepId, self.train, count = config['iterations'])
 

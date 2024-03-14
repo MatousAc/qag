@@ -56,7 +56,7 @@ class DataFormatter(ConfigBase):
     '''Formats an example for training'''
     # get column values from lists of strings
     if isinstance(example['sentence'], list):
-      sentence = example['paragraph_sentence'][i] # FIXME paragraph_sentence -> sentence
+      sentence = example['sentence'][i] # paragraph_sentence | sentence
       answer = example['answer'][i]
       if self.trainFor == 'QG': question = example['question'][i]
     else:
