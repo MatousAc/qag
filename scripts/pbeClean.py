@@ -42,7 +42,7 @@ lsb['categories'] = lsb['categories'].str.replace(ptsRe, '', flags=re.IGNORECASE
 cats = ['2To3', 'bigPoints', 'people', 'places', 'names', 'numbers']
 for cat in cats:
   lsb[cat] = lsb['categories'].str.contains(cat.lower()) == True
-  bab[cat] = False
+  bab[cat] = False # Babienco has no categories
 # 7. extract reference "according to..." && capitalize question
 refRe = r'\s*According to (?P<book>(?:\d\s)?[a-zA-Z]+)\s(?P<chapter>\d+):(?P<verse>\d+)(?:[-,]?[ ]?(?P<endVerse>\d+))?,?\s*'
 newCols = lsb['refQuestion'].str.extract(refRe, flags=re.IGNORECASE)

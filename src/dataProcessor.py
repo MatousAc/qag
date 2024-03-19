@@ -5,7 +5,7 @@ from verse import Verse
 
 class DataProcessor(ConfigBase):
   '''Handles answer deduplication, some data cleaning,
-  data reformattion, and getting Bible verse texts.'''
+  data reformating, data reporting, and getting Bible verse texts.'''
   def configure(self):
     self.source = self.paths['dpSource']
     self.destination = self.paths['dpDest']
@@ -197,7 +197,7 @@ class DataProcessor(ConfigBase):
     return self.constructVerse(book, chapter, verseNumber)
 
   def modelExecTimes(self):
-    print('executing')
+    '''Expects a CSV in dataSource config.'''
     data = pd.read_csv(self.source, sep=',')
     data['count'] = 1
     print(data)
@@ -207,6 +207,17 @@ class DataProcessor(ConfigBase):
     }).reset_index()
     print(grouped)
     
+  def dataReport(self):
+    data = pd.read_csv(self.source, sep=',')
+    data['count'] = 1
+    total = len(data.index)
+    print(f'{total} total unfiltered data rows')
+    grouped = data.groupby(['source']).agg({
+      'count': 'sum'
+    }).reset_index()
+    grouped['percentage'] = grouped['count'] / total
+    print(grouped)
+  
 if __name__ == '__main__':
   dp = DataProcessor()
   match sys.argv[1].replace('-', '').lower():
@@ -216,4 +227,5 @@ if __name__ == '__main__':
     case 'csvtojsonl': dp.csvToJsonl()
     case 'jsonltocsv': dp.jsonlToCsv()
     case 'modelexectimes': dp.modelExecTimes()
+    case 'datareport': dp.dataReport()
     case 'none' | _: pass
