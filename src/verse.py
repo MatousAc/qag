@@ -9,6 +9,8 @@ class Verse():
   text: str
   following: str
   inContext: str
+  questionContext: str
+  wordCount: int
 
   # reference stuff
   ref: str

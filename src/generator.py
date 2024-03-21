@@ -1,5 +1,5 @@
 # import libraries we need
-import torch, sys
+import torch, sys, os
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer
 from modelHandler import ModelHandler
 from verse import Verse
@@ -64,11 +64,11 @@ class Generator(ModelHandler):
       return response
 
   def generateQA(self, verse: Verse):
+    fp = os.path.normpath(self.basePath + '/src/commonWords.txt')
+    commonWords = open(fp).read().split()
     def smartUnCapitalize(str):
-      if str.split()[0] in [
-        'Who', 'What', 'When', 'Where', 'Why', 'Which', 
-        'Whose','How', 'The', 'That', 'A'
-      ]: str = str[0].lower() + str[1:]
+      if str.split()[0].lower() in commonWords:
+        str = str[0].lower() + str[1:]
       return str
     qa = []
     # AE
@@ -86,12 +86,13 @@ class Generator(ModelHandler):
     self.timer.model = self.pipelineFolders['QG']
     for answer in answers:
       qgInput = self.cp['dataFormatter'][f'respTempleQG']
-      qgInput = qgInput.replace('<context>', verse.text)
+      context = verse.questionContext
+      qgInput = qgInput.replace('<context>', context)
       qgInput = qgInput.replace('<answer>', answer)
       qgInput = qgInput.replace('<question>', '')
       qgInput = qgInput.strip()
       question = self.infer(qgInput, 'QG')
-      question = question.split('?')[0]
+      question = question.split('?')[0] # only the first question is relevant
       question = question.strip()
       question = f'According to {verse.ref}, {smartUnCapitalize(question)}?'
       qa.append({
@@ -108,15 +109,26 @@ class Generator(ModelHandler):
     print('Ctrl+C to exit')
     try:
       while True:
+    #   for ref in ['Luke 2:1', 'Ephesians 2:8-9', 'Judges 6:11', 
+    #   'Genesis 6:1', 'Exodus 14:5', 'Joshua 1:1', '3 John 1:14', 
+    #   'Judges 6:1', 'Judges 12:8', 'Malachi 4:2', 'Jonah 3:4', 
+    #   'Jonah 1:13', 'Joshua 18:14', 'Philemon 1:12', 'Ezekiel 12:6', 
+    #   'Ezekiel 12:1', 'Ezekiel 12:12', 'Galatians 1:1', 
+    #   'Colossians 1:1', 'Psalm 20:4', 'Proverbs 1:7', 
+    #   'Proverbs 15:1', 'Micah 5:1', 'Micah 5:2', 'Exodus 26:5', 
+    #   'Exodus 25:13', 'Genesis 6:13', 'Genesis 6:2'
+    # ]:
         verse = self.requestVerse()
         print(verse.text)
         qa = self.generateQA(verse)
     except KeyboardInterrupt: print(f'\rClosing{" " * 20}\n')
     except: raise
 
-  def requestVerse(self) -> Verse:
+  def requestVerse(self, ref = None) -> Verse:
     # get reference from user
-    ref = input('Reference: ')
+    if not ref: ref = input('Reference: ')
+  
+    print(f'Reference: {ref}')
     if ref != '':
       try: return self.dp.constructVerse(ref)
       except IndexError:

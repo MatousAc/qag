@@ -184,6 +184,8 @@ class DataProcessor(ConfigBase):
       targetVerses.append(getVrs(verseNumber))
     v.text = ' '.join(targetVerses)
     v.inContext = f'{v.previous} {v.text} {v.following}'.strip()
+    v.wordCount = len(v.text.split())
+    v.questionContext = v.inContext if v.wordCount < 15 else v.text
     return v
 
   def getRandomVerse(self) -> Verse: 
