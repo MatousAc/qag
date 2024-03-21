@@ -40,11 +40,11 @@ pip install datasets evaluate huggingface numpy pandas transformers tokenizers t
 It's up to you to figure out how to install cuda toolkit on your machine.
 
 # Training
-To fine-tune a new model set up the proper config (AE vs. QG) and then run [qagTrainer.py](src/qagTrainer.py). The run stats should be available in the pbe_qag team on wandb.ai under the AE or QG project.
+To fine-tune a new model set up the proper config (AE vs. QG) and then run [trainer.py](src/trainer.py). The run stats should be available in the pbe_qag team on wandb.ai under the AE or QG project.
 
 To run AE and the QG traing back-to-back, just start with `trainFor` in [qag.ini](src/qag.ini) as `AE` and run:
 ```
-python qagTrainer.py; python qagTrainer.py
+python trainer.py; python trainer.py
 ```
 And then once the first training has started, simply change `trainFor` to `QG`. Save the file. This will run AE training first and, when complete, will run another trainig, but this time QG as that is what [qag.ini](src/qag.ini) specifies.
 

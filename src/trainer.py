@@ -231,7 +231,7 @@ class Trainer(ModelHandler):
 
   def sweep(self):
     self.sweeping = True
-    self.maxSteps = 300
+    self.maxSteps = 200
     config = yaml.safe_load(Path(f'sweep.yml').read_text())
     sweepId = wandb.sweep(config, project = config['project'])
     wandb.agent(sweepId, self.train, count = config['iterations'])

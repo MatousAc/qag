@@ -52,7 +52,8 @@ class DataProcessor(ConfigBase):
       self.printProgressBar(i, maximum = maximum, label = 'context')
       # get verse pieces
       book = row['book']; chapter = row['chapter']; start = row['verse']; end = row['endVerse']
-      verse: Verse = self.constructVerse(book, chapter, start, end)
+      try: verse: Verse = self.constructVerse(book, chapter, start, end)
+      except: print(f'Error fetching verse {book} {chapter}:{verse}-{end} -> {row}')
       # assign pieces
       data.at[i, 'sentence'] = verse.text
       data.at[i, 'paragraph'] = verse.inContext
@@ -132,13 +133,13 @@ class DataProcessor(ConfigBase):
     # group answers by verse and remove near duplicates
     sep = ' <sep> '
     grouped = df.groupby('sentence').agg({
-      'answer': lambda x: sep.join(self.aeDeduplicate(x, 10)),
+      'answer': lambda x: sep.join(self.aeDeduplicate(x, 12)),
       'quality': 'mean'
     }).reset_index()
     grouped['count'] = grouped['answer'].apply(lambda x: x.count(sep) + 1)
     grouped.rename(columns={'question': 'count'}, inplace=True)
     # train model to produce 3-12 ans
-    grouped = grouped[(grouped['count'] > 2) & (grouped['count'] < 13)]
+    grouped = grouped[(grouped['count'] > 2) & (grouped['count'] < 15)]
     dataset = Dataset.from_pandas(grouped.reset_index(drop=True))
     if not self.quiet: 
       print(grouped.head())

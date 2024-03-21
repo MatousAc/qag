@@ -13,7 +13,7 @@ lsb['categories'] = lsb['categories'].str.lower()
 bab = pd.read_csv(f'{dataSrc}/bible-questions.csv', sep=';')
 bab = bab[(bab['chapter'] == bab['endChapter']) | (bab['endChapter'].isnull())] # rm questions that span multiple chapters
 bab = bab.drop(columns=['id', 'type', 'endBook', 'dateCreated', 'endChapter']) # unnecessary columns
-bab['source'] = 'Babienco'; bab['quality'] = 8;
+bab['source'] = 'Babienco'; bab['quality'] = 7; # avg quality
 
 # 1. trim whitespace, rm consecutive spaces
 lsb = lsb.replace(r'^ +| +$', r'', regex=True).replace(r'\s+', ' ', regex=True)
