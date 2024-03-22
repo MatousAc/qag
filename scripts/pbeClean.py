@@ -113,9 +113,10 @@ data = data[data['points'] < 13]
 # 16. put back apostrophes that somehow got lost
 data['question'] = data['question'].str.replace('�', "'")
 data['answer'] = data['answer'].str.replace('�', "'")
-# 17. remove all occurences of "Do not confuse with verse #" in question and answer columns
-data['question'] = data['question'].str.replace(r'\(?do not confuse .*\)?\.?', r'', regex=True, flags=re.IGNORECASE)
-data['answer'] = data['answer'].str.replace(r'\(?do not confuse .*\)?\.?', r'', regex=True, flags=re.IGNORECASE)
+# 17. remove all occurences of "Do not confuse with verse #" and 'Note:' in question and answer columns
+dncRe = r'\(?(?:do not confuse)|(?:note:?).*\)?\.?'
+data['question'] = data['question'].str.replace(dncRe, r'', regex=True, flags=re.IGNORECASE)
+data['answer'] = data['answer'].str.replace(dncRe, r'', regex=True, flags=re.IGNORECASE)
 # 18. replace special/double characters
 data['answer'] = data['answer'].str.replace(r'“|”', r'"', regex=True).str.replace(r"‘|’", r"'", regex=True)
 data['question'] = data['question'].str.replace(r'“|”', r'"', regex=True).str.replace(r"‘|’", r"'", regex=True)
