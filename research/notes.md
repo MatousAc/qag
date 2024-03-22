@@ -7,10 +7,11 @@ The best models so far are emboldened
 * 7b-chatAE03: Less specific prompt. No custom tokens. Produces good answers. Does not stop short.
 * 7b-chatAE04: Unspecific prompt. No custom tokens. Trained on max data. Does just as well as above.
 * 7b-chatAE05: Unspecific prompt. No custom tokens. Testing cutom eval metrics. The generation seems to get slightly better as we go along through training, but the metrics don't change as much as I'd expect. The end result extracts good answers.
-* **7b-chatAE06**: Same as above. Testing training more Lora layers (qvko). Results: the adapter is twice the size of the others at 256MB. Inference is not slower however. The answers produced can be slightly better than the 07 model which did not train extra layers. These answers are slightly easier to make questions for. Probably move forward without the 'o' layer, but keep training the 'k' (key layer).
+* 7b-chatAE06: Same as above. Testing training more Lora layers (qvko). Results: the adapter is twice the size of the others at 256MB. Inference is not slower however. The answers produced can be slightly better than the 07 model which did not train extra layers. These answers are slightly easier to make questions for. Probably move forward without the 'o' layer, but keep training the 'k' (key layer).
 * 7b-chatAE07: Same as above. Testing exact same w/o more Lora layers (increased gradient accumulation steps to 10). Produces slightly more difficult answers than the 06 model which has trained extra layers.
 * 7b-chatAE08: Same as above. Now testing w/ injection of custom evaluation metrics. Results are same as above.
-* 7b-chatAE09: New data (Paulean && NAD). Train w/ optimal hyperparameters. Quality threshold 8. Yet to be tested.
+* **7b-chatAE09**: New data (Paulean && NAD). Train w/ optimal hyperparameters. Quality threshold 8. Inference is marginally slower potentially due to more layers? Answers generated are pretty good. Some slight improvement possibly. The nnew deduplication script is helping.
+* 7b-chatAE10: Training with newly deduplicated AE data.
 
 ## QG
 * 7b-chatQG00: Relatively specific unoptimized prompt. No custom tokens. Produces decent questions. Spits out a ton of "do not confuse w/ vs #"
@@ -21,8 +22,8 @@ The best models so far are emboldened
 * **7b-chatQG05**: Testing w/o more Lora layers but with quality threshold 9. Produces almost no trash, but does produce several questions for each answer. The first question's quality is quite good, but the model makes things up for short contexts. Adding extra context for short verses on just QG ($< 15$ words) improves the performance quite a bit, so we'll be doing that from now on.
 * 7b-chatQG06: Testing w Lora layers (qvk) and quality threshold 9. Results seem to be like the above. Questions are seem relevant at first and the model even seems to correct itself in places, but in QAG this model underperforms. A significant amount of questions are off.
 * 7b-chatQG07: Like 05 but now with the paragraph_sentence context. When prompted without extra context and hl tokens, the model still seemed to produce good questions. It produces more trash and newlines afterwards though. When prompted with the extra context as trained, the model produces decent questions. It significantly improves QAG for very short verses. It seems to flounder less in general. The main downside is that it will sometimes guess at information that is not provided to it and will misplace a text in the Bible. This causes the model to sometimes produce completely wrong questions for the context. Also the model has not been discouraged from creativity enough, so it sometimes just makes up facts that are not found in the context or extended context. It is a major problem and we will not train the model this way in the future.
-* 7b-chatQG08: New data (Paulean && NAD). More Lora layers and other optimal hyperparameters. Quality threshold 8. Yet to be tested.
-
+* 7b-chatQG08: New data (Paulean && NAD). More Lora layers and other optimal hyperparameters. Quality threshold 8. The gestion generation is significantly better. The questions are more articulate and exact. There is still a slight issue with potentially making stuff up from the wrong parst of the bible. I should try training w/ references.
+* 7b-chatQG09: Trained with references in prompt. Yet to be tested.
 
 
 # Input format testing

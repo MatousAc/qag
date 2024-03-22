@@ -240,11 +240,13 @@ class Trainer(ModelHandler):
   def infer(self, model: AutoModelForCausalLM, inferenceInput = None):
     '''Infers with the specified model'''
     if not inferenceInput: inferenceInput = self.df.getInferenceInput(self.dp)
+    self.timer.start()
     modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
     model.eval()
     with torch.no_grad():
       tokens = model.generate(**modelInput, max_new_tokens=100)[0]
       prediction = self.tokenizer.decode(tokens, skip_special_tokens=True)
+    self.timer.stop()
     return prediction
   
   def inferenceLoop(self, useBase = False):
@@ -260,9 +262,7 @@ class Trainer(ModelHandler):
     print('Ctrl+C to exit')
     try:
       while True:
-        self.timer.start()
         print(self.infer(model))
-        self.timer.stop()
         print('~' * self.vw)
     except KeyboardInterrupt: print('\rClosing\n')
     except: raise # rethrow

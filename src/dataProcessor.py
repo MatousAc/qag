@@ -55,6 +55,7 @@ class DataProcessor(ConfigBase):
       try: verse: Verse = self.constructVerse(book, chapter, start, end)
       except: print(f'Error fetching verse {book} {chapter}:{verse}-{end} -> {row}')
       # assign pieces
+      data.at[i, 'question'] = verse.ref + ', ' + data.at[i, 'question'] # FIXME rm reference if applicable
       data.at[i, 'sentence'] = verse.text
       data.at[i, 'paragraph'] = verse.inContext
       data.at[i, 'paragraph_question'] = f'question: {row["question"]}, context: {verse.inContext}'
@@ -155,7 +156,7 @@ class DataProcessor(ConfigBase):
         continue
       # 3. if 2-point answer parts differ only by first word, rm
       if len(parts) == 2:
-        pt0 = parts[0].lower().strip(); pt1 = parts[1].lower().strip()
+        pt0 = parts[0].lower().strip().strip(' and'); pt1 = parts[1].lower().strip()
         l0 = len(pt0.split()); l1 = len(pt1.split())
         if l0 > l1: pt0 = ' '.join(pt0.split()[1:])
         else : pt1 = ' '.join(pt1.split()[1:])

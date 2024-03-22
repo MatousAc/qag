@@ -9,7 +9,7 @@ class TimeLogger(ConfigBase):
   def configure(self):
     self.mode = self.cp['general']['mode']
     self.logDir = self.paths['log']
-    self.logFile = f'{self.logDir}/executionTime.txt'
+    self.logFile = f'{self.logDir}/executionTime.csv'
     self.startTime = None
     self.stopTime = None
     self.timing = False

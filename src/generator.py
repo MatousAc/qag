@@ -108,17 +108,16 @@ class Generator(ModelHandler):
   def generationLoop(self):
     print('Ctrl+C to exit')
     try:
-      while True:
-    #   for ref in ['Luke 2:1', 'Ephesians 2:8-9', 'Judges 6:11', 
-    #   'Genesis 6:1', 'Exodus 14:5', 'Joshua 1:1', '3 John 1:14', 
-    #   'Judges 6:1', 'Judges 12:8', 'Malachi 4:2', 'Jonah 3:4', 
-    #   'Jonah 1:13', 'Joshua 18:14', 'Philemon 1:12', 'Ezekiel 12:6', 
-    #   'Ezekiel 12:1', 'Ezekiel 12:12', 'Galatians 1:1', 
-    #   'Colossians 1:1', 'Psalm 20:4', 'Proverbs 1:7', 
-    #   'Proverbs 15:1', 'Micah 5:1', 'Micah 5:2', 'Exodus 26:5', 
-    #   'Exodus 25:13', 'Genesis 6:13', 'Genesis 6:2'
-    # ]:
-        verse = self.requestVerse()
+      # while True:
+      for ref in ['Luke 2:1', 'Ephesians 2:8-9', 'Judges 6:11', 
+      'Genesis 6:1', 'Exodus 14:5', 'Joshua 1:1', '3 John 1:14', 
+      'Judges 6:1', 'Judges 12:8', 'Malachi 4:2', 'Jonah 3:4', 
+      'Jonah 1:13', 'Joshua 18:14', 'Philemon 1:12', 'Ezekiel 12:6', 
+      'Ezekiel 12:1', 'Ezekiel 12:12', 'Galatians 1:1', 
+      'Colossians 1:1', 'Psalm 20:4', 'Proverbs 1:7', 
+      'Proverbs 15:1', 'Micah 5:1', 'Micah 5:2', 'Exodus 26:5', 
+      'Exodus 25:13', 'Genesis 6:13', 'Genesis 6:2']:
+        verse = self.requestVerse(ref)
         print(verse.text)
         qa = self.generateQA(verse)
     except KeyboardInterrupt: print(f'\rClosing{" " * 20}\n')
