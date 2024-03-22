@@ -1,4 +1,4 @@
-import pandas as pd, sys, random, csv, json, string, re
+import pandas as pd, sys, os, random, csv, json, string, re
 from datasets import load_dataset, Dataset
 from configBase import ConfigBase
 from verse import Verse
@@ -72,13 +72,16 @@ class DataProcessor(ConfigBase):
     # save
     data.to_csv(self.destination, index=False)
 
-  def aeDeduplicate(self, answers, targetCount = 7):
+  def aeDeduplicate(self, answers):
     '''Set-based deduplication of similar answers'''
     answers = list(answers)
-    # remove answers longer than 20 words
-    for answer in answers:
-      if len(answer.split()) > 20: answers.remove(answer)
-
+    # 1. remove answers longer than 25 words
+    for answer in answers.copy():
+      if len(answer.split()) > 25:
+        answers.remove(answer)
+        # print('Removing:\n', answer, "\nbecause it is over 25 words.")
+    
+    # useful functions
     def normAns(text):
       '''Reduces text to basic words'''
       text = text.lower()
@@ -87,36 +90,97 @@ class DataProcessor(ConfigBase):
       text = text.translate(str.maketrans("", "", string.punctuation))
       return text
     
-    def areSimilar(text1, text2, threshold = 0.7):
-      '''Determines whether two answers are similar'''
+    def compare(text1, text2, threshold = 0.6):
+      '''Determines whether two answers are similar, and if they
+      are, which of the two to remove from answer list. returns -1 
+      for keep left, 0 for keeping both, 1 for keeping right'''
+      if text1 == text2: return -1 # identical
       # split texts into words
       words1 = set(normAns(text1).split())
       words2 = set(normAns(text2).split())
+      # determine longer text, prefer keeping left (original) side
+      longerText = -1 if len(text1.split()) >= len(text2.split()) else 1
+      # if there is no 'and', base legths of of word uniqueness
+      len1 = len(words1); len2 = len(words2)
+      if 'and' not in words1.union(words2): longerText = -1 if len1 >= len2 else 1
+      if words1 == words2: return longerText # if set identical, keep original
+      
       # answers are not similar if their length difference is
       # more than 50% of the smaller answer and more than 3 words
-      len1 = len(words1); len2 = len(words2)
       maxLen = max(len1, len2); minLen = min(len1, len2)
-      if abs(len1 - len2) > max(int(minLen * 0.5), 3): return False
+      diff = abs(len1 - len2)
+      if diff > max(int(minLen * 0.5), 3): return 0 # not similar
+      
       # answers are similar if they intersect 'threshold' percent of
       # the time or only differ by one word for smaller answers
-      maxNumSimilarWords = max(maxLen - 1, 1) if maxLen < 5 else int(threshold * maxLen)
-      return len(words1.intersection(words2)) >= maxNumSimilarWords
+      if maxLen < 3:
+        # ignore super common words
+        fp = os.path.normpath(self.basePath + '/src/commonWords.txt')
+        commonWords = open(fp).read().split()
+        for word in commonWords:
+          words1.discard(word)
+          words2.discard(word)
+        if words1 == words2: return longerText
+        # maxNumSimilarWords = max(max(len(words1), len(words2)) - 2, 1)
+      if maxLen < 6: maxNumSimilarWords = max(maxLen - 2, 1)
+      else: maxNumSimilarWords = int(threshold * maxLen)
+      if len(words1.intersection(words2)) <= maxNumSimilarWords: return 0 # not similar
+      else: return longerText
 
-    def dedupLoop(dupElems, threshold):
-      '''Performs a round of deduplication at threshold'''
-      uniqueElems = set()
-      for elem in dupElems:
-        isDuplicate = any(areSimilar(elem, uniqueElem, threshold) for uniqueElem in uniqueElems)
-        if not isDuplicate: uniqueElems.add(elem)
-      return uniqueElems
-    
-    # rm near or full duplicates
-    threshold = 0.7
-    uniqueAnswers = dedupLoop(answers, threshold)
-    while len(uniqueAnswers) > targetCount and threshold > 0.2:
-      uniqueAnswers = dedupLoop(uniqueAnswers, threshold)
-      threshold -= 0.1
-    return uniqueAnswers
+    # 2. remove multi-point answers with more than twice
+    # as many words in any answer as there are total points
+    pointRe = r'\s*\((\d+)\)\s*'
+    for answer in answers.copy():
+      matches = re.findall(pointRe, answer)
+      totalPoints = max(len(matches), 1)
+      if totalPoints == 1:
+        # remove single-point answers that are too long
+        if len(answer.split()) > 13:
+          answers.remove(answer)
+          # print('Removing single point answer over 13 words:\n', answer)
+        continue
+          
+      parts = re.split(pointRe, answer)
+      rmList = []
+      for part in parts:
+        if len(part) < 3: rmList.append(part)
+      for part in rmList: parts.remove(part)
+      maxLen = 0
+      for part in parts:
+        l = len(part.split())
+        if maxLen < l: maxLen = l
+      if maxLen >= (totalPoints * 3):
+        # print('Removing:\n', answer, "\ndue to a bad balance of words to points.")
+        answers.remove(answer)
+        continue
+      # 3. if 2-point answer parts differ only by first word, rm
+      if len(parts) == 2:
+        pt0 = parts[0].lower().strip(); pt1 = parts[1].lower().strip()
+        l0 = len(pt0.split()); l1 = len(pt1.split())
+        if l0 > l1: pt0 = ' '.join(pt0.split()[1:])
+        else : pt1 = ' '.join(pt1.split()[1:])
+        if pt1 == pt0:
+          # print('Removing:\n', answer, "\nbecause point parts only differ by first word.")
+          answers.remove(answer)
+
+    # collect the best unique answers
+    uniqueElems = set()
+    for currAns in answers:
+      addFlag = True
+      for uniqueElem in uniqueElems:
+        decision = compare(uniqueElem, currAns)
+        if decision == 0: continue # keep uniqueElem, compare current further
+        if decision == 1: # replacement
+          # print(f'Replacing:\n' + uniqueElem + '\nwith:\n' + currAns)
+          uniqueElems.remove(uniqueElem)
+        elif decision == -1: # skip
+          # print(f'Not adding:\n' + currAns + '\nbecause it is close to:\n' + uniqueElem)
+          addFlag = False
+        break
+      # only add if different from all
+      if addFlag: uniqueElems.add(currAns)
+
+    return list(uniqueElems)
 
   def makeAE(self):
     '''Aggregates verses and deduplicates
@@ -133,7 +197,7 @@ class DataProcessor(ConfigBase):
     # group answers by verse and remove near duplicates
     sep = ' <sep> '
     grouped = df.groupby('sentence').agg({
-      'answer': lambda x: sep.join(self.aeDeduplicate(x, 12)),
+      'answer': lambda x: sep.join(self.aeDeduplicate(x)),
       'quality': 'mean'
     }).reset_index()
     grouped['count'] = grouped['answer'].apply(lambda x: x.count(sep) + 1)
@@ -220,12 +284,26 @@ class DataProcessor(ConfigBase):
     }).reset_index()
     grouped['percentage'] = grouped['count'] / total
     print(grouped)
+
+  def testAEDeduplication(self):
+    ans = input('Enter answer list: ').lstrip('[\'').lstrip('["').rstrip('\']').rstrip('"]')
+    # ans = re.split(r"', '|\", '|', \"|\", \"", ans)
+    ans = re.split(r"[\"'], [\"']", ans)
+    print('')
+    ans = [a.strip("'") for a in ans]
+    print(f'{len(ans)} answers @ start')
+    print('\n'.join(ans) + '\n')
+    ans = dp.aeDeduplicate(ans)
+    print('\n\nUnique Answers:')
+    print('\n'.join(ans))
+    print(f'{len(ans)} answers left')
   
 if __name__ == '__main__':
   dp = DataProcessor()
   match sys.argv[1].replace('-', '').lower():
     case 'randomverse': print(dp.getRandomVerse().text)
     case 'makeae': dp.makeAE()
+    case 'testaededuplication': dp.testAEDeduplication()
     case 'pbecontextualize': dp.pbeContextualize()
     case 'csvtojsonl': dp.csvToJsonl()
     case 'jsonltocsv': dp.jsonlToCsv()
