@@ -77,12 +77,6 @@ class Generator(ModelHandler):
       return response
 
   def generateQA(self, verse: Verse):
-    fp = os.path.normpath(self.basePath + '/src/commonWords.txt')
-    commonWords = open(fp).read().split()
-    def smartUnCapitalize(str):
-      if str.split()[0].lower() in commonWords:
-        str = str[0].lower() + str[1:]
-      return str
     qa = []
     # AE
     aeInput = self.cp['dataFormatter'][f'respTempleAE']
@@ -110,7 +104,7 @@ class Generator(ModelHandler):
       question = self.infer(qgInput, 'QG')
       question = question.split('?')[0] # only the first question is relevant
       question = question.strip()
-      question = f'According to {verse.ref}, {smartUnCapitalize(question)}?'
+      question = f'{ref} {question}?'
       qa.append({
         'question': question,
         'answer': answer

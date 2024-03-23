@@ -11,7 +11,7 @@ The best models so far are emboldened
 * 7b-chatAE07: Same as above. Testing exact same w/o more Lora layers (increased gradient accumulation steps to 10). Produces slightly more difficult answers than the 06 model which has trained extra layers.
 * 7b-chatAE08: Same as above. Now testing w/ injection of custom evaluation metrics. Results are same as above.
 * **7b-chatAE09**: New data (Paulean && NAD). Train w/ optimal hyperparameters. Quality threshold 8. Inference is marginally slower potentially due to more layers? Answers generated are pretty good. Some slight improvement possibly. The nnew deduplication script is helping.
-* 7b-chatAE10: Training with newly deduplicated AE data.
+* 7b-chatAE10: Training with newly deduplicated && point/length filtered AE data. This model generally produces less multi-point questions, but usually when it does, the multiple points are slightly more relevant and easier to craft questions for. There may be something to explore here, but I can't mark this as the best model just yet.
 
 ## QG
 * 7b-chatQG00: Relatively specific unoptimized prompt. No custom tokens. Produces decent questions. Spits out a ton of "do not confuse w/ vs #"
@@ -23,7 +23,8 @@ The best models so far are emboldened
 * 7b-chatQG06: Testing w Lora layers (qvk) and quality threshold 9. Results seem to be like the above. Questions are seem relevant at first and the model even seems to correct itself in places, but in QAG this model underperforms. A significant amount of questions are off.
 * 7b-chatQG07: Like 05 but now with the paragraph_sentence context. When prompted without extra context and hl tokens, the model still seemed to produce good questions. It produces more trash and newlines afterwards though. When prompted with the extra context as trained, the model produces decent questions. It significantly improves QAG for very short verses. It seems to flounder less in general. The main downside is that it will sometimes guess at information that is not provided to it and will misplace a text in the Bible. This causes the model to sometimes produce completely wrong questions for the context. Also the model has not been discouraged from creativity enough, so it sometimes just makes up facts that are not found in the context or extended context. It is a major problem and we will not train the model this way in the future.
 * **7b-chatQG08**: New data (Paulean && NAD). More Lora layers and other optimal hyperparameters. Quality threshold 8. The gestion generation is significantly better. The questions are more articulate and exact. There is still a slight issue with potentially making stuff up from the wrong part of the bible. I should try training w/ references. There is a small potential for maybe training the smaller verses with the highlight tokens, as the model (on rare occasion) may mistake another part of context referring to the answer and then will mention stuff outside the context verse.
-* 7b-chatQG09: Trained with references in prompt. Yet to be tested.
+* 7b-chatQG09: Messed up training. Disregard.
+* 7b-chatQG10: Trained with references included. Also including the new Joshua and Judges data. Quality 8. Yet to be tested.
 
 
 # Input format testing

@@ -13,6 +13,8 @@ class DataProcessor(ConfigBase):
     
     self.nkjv = pd.read_csv(self.bibleSrc)
     self.nkjvInfo = self.getNkjvInfo()
+    fp = os.path.normpath(self.basePath + '/src/commonWords.txt')
+    self.commonWords = open(fp).read().split()
 
   def getNkjvInfo(self):
     '''Creates an object representing the NKJV Bible'''
@@ -40,6 +42,11 @@ class DataProcessor(ConfigBase):
 
     return nkjvContent
 
+  def smartUnCapitalize(self, str):
+    if str.split()[0].lower() in self.commonWords:
+      str = str[0].lower() + str[1:]
+    return str
+
   def pbeContextualize(self):
     '''Adds the actual verse texts to data'''
     data = pd.read_csv(self.source)
@@ -55,7 +62,7 @@ class DataProcessor(ConfigBase):
       try: verse: Verse = self.constructVerse(book, chapter, start, end)
       except: print(f'Error fetching verse {book} {chapter}:{verse}-{end} -> {row}')
       # assign pieces
-      data.at[i, 'question'] = verse.ref + ', ' + data.at[i, 'question'] # FIXME rm reference if applicable
+      data.at[i, 'question'] = verse.ref + ', ' + self.smartUnCapitalize(data.at[i, 'question']) # FIXME rm reference if applicable
       data.at[i, 'sentence'] = verse.text
       data.at[i, 'paragraph'] = verse.inContext
       data.at[i, 'paragraph_question'] = f'question: {row["question"]}, context: {verse.inContext}'
@@ -110,7 +117,7 @@ class DataProcessor(ConfigBase):
           if testing: print('Removing:\n', answer, "\ndue to identical parts.")
           break
       if currAnsLen != len(answers): continue # removed this answer, move on
-      # 4. remove if words are unevenly distributed into one point value
+      # 4. remove if there are too many words in one of the points
       for part in parts:
         l = len(part.split())
         if maxLen < l: maxLen = l

@@ -10,7 +10,9 @@ dataDest = '../data/pbe/clean/refQuestions.csv'
 lsb = pd.read_excel(f'{dataSrc}/Reformatted Bible Questions.xlsx')
 lsb['categories'] = lsb['categories'].str.lower()
 # ['question', 'answer', 'points', 'book', 'chapter', 'verse', 'endVerse', 'source']
-bab = pd.read_csv(f'{dataSrc}/bible-questions.csv', sep=';')
+babMain = pd.read_csv(f'{dataSrc}/bible-questions.csv', sep=';')
+babJJ = pd.read_csv(f'{dataSrc}/joshuaJudgesBabienco.csv')
+bab = pd.concat([babMain, babJJ])
 bab = bab[(bab['chapter'] == bab['endChapter']) | (bab['endChapter'].isnull())] # rm questions that span multiple chapters
 bab = bab.drop(columns=['id', 'type', 'endBook', 'dateCreated', 'endChapter']) # unnecessary columns
 bab['source'] = 'Babienco'; bab['quality'] = 7; # avg quality
