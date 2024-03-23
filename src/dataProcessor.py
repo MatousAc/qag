@@ -73,16 +73,65 @@ class DataProcessor(ConfigBase):
     # save
     data.to_csv(self.destination, index=False)
 
-  def aeDeduplicate(self, answers):
-    '''Set-based deduplication of similar answers'''
-    answers = list(answers)
+  def aeFilter(self, answers, testing = False):
+    '''Filters out badly generated answers'''
     # 1. remove answers longer than 25 words
     for answer in answers.copy():
       if len(answer.split()) > 25:
         answers.remove(answer)
-        # print('Removing:\n', answer, "\nbecause it is over 25 words.")
-    
-    # useful functions
+        print('Removing:\n', answer, "\nbecause it is over 25 words.")
+
+    # 2. remove multi-point answers with more than twice
+    # as many words in any answer as there are total points
+    pointRe = r'\s*\((\d+)\)\s*'
+    for answer in answers.copy():
+      matches = re.findall(pointRe, answer)
+      totalPoints = max(len(matches), 1)
+      if totalPoints == 1:
+        # remove single-point answers that are too long
+        if len(answer.split()) > 13:
+          answers.remove(answer)
+          if testing: print('Removing single point answer over 13 words:\n', answer)
+        continue
+          
+      parts = re.split(pointRe, answer)
+      rmList = []
+      for part in parts:
+        if len(part) < 3: rmList.append(part)
+      for part in rmList: parts.remove(part)
+      maxLen = 0
+      # 3. rm if any parts are identical (ignore case)
+      currAnsLen = len(answers)
+      for part in parts:
+        partCopy = parts.copy()
+        partCopy.remove(part)
+        if part.lower() in [p.lower() for p in partCopy]:
+          answers.remove(answer)
+          if testing: print('Removing:\n', answer, "\ndue to identical parts.")
+          break
+      if currAnsLen != len(answers): continue # removed this answer, move on
+      # 4. remove if words are unevenly distributed into one point value
+      for part in parts:
+        l = len(part.split())
+        if maxLen < l: maxLen = l
+      if maxLen >= (totalPoints * 3):
+        if testing: print('Removing:\n', answer, "\ndue to a bad balance of words to points.")
+        answers.remove(answer)
+        continue
+      # 5. if 2-point answer parts differ only by first word, rm
+      if len(parts) == 2:
+        pt0 = parts[0].lower().strip().strip(' and'); pt1 = parts[1].lower().strip()
+        l0 = len(pt0.split()); l1 = len(pt1.split())
+        if l0 > l1: pt0 = ' '.join(pt0.split()[1:])
+        else : pt1 = ' '.join(pt1.split()[1:])
+        if pt1 == pt0:
+          if testing: print('Removing:\n', answer, "\nbecause point parts only differ by first word.")
+          answers.remove(answer)
+    return answers
+
+  def aeDeduplicate(self, answers, testing = False):
+    '''Set-based deduplication of similar answers'''
+    answers = list(answers)
     def normAns(text):
       '''Reduces text to basic words'''
       text = text.lower()
@@ -91,7 +140,7 @@ class DataProcessor(ConfigBase):
       text = text.translate(str.maketrans("", "", string.punctuation))
       return text
     
-    def compare(text1, text2, threshold = 0.6):
+    def compare(text1, text2, threshold = 0.7):
       '''Determines whether two answers are similar, and if they
       are, which of the two to remove from answer list. returns -1 
       for keep left, 0 for keeping both, 1 for keeping right'''
@@ -114,8 +163,10 @@ class DataProcessor(ConfigBase):
       
       # answers are similar if they intersect 'threshold' percent of
       # the time or only differ by one word for smaller answers
-      if maxLen < 3:
-        # ignore super common words
+      if maxLen < 4:
+        # different enough if each has a word the other doesn't have
+        if len(words1.symmetric_difference(words2)) >= 2: return 0
+        # ignore super common words that are in both answers
         fp = os.path.normpath(self.basePath + '/src/commonWords.txt')
         commonWords = open(fp).read().split()
         for word in commonWords:
@@ -128,42 +179,6 @@ class DataProcessor(ConfigBase):
       if len(words1.intersection(words2)) <= maxNumSimilarWords: return 0 # not similar
       else: return longerText
 
-    # 2. remove multi-point answers with more than twice
-    # as many words in any answer as there are total points
-    pointRe = r'\s*\((\d+)\)\s*'
-    for answer in answers.copy():
-      matches = re.findall(pointRe, answer)
-      totalPoints = max(len(matches), 1)
-      if totalPoints == 1:
-        # remove single-point answers that are too long
-        if len(answer.split()) > 13:
-          answers.remove(answer)
-          # print('Removing single point answer over 13 words:\n', answer)
-        continue
-          
-      parts = re.split(pointRe, answer)
-      rmList = []
-      for part in parts:
-        if len(part) < 3: rmList.append(part)
-      for part in rmList: parts.remove(part)
-      maxLen = 0
-      for part in parts:
-        l = len(part.split())
-        if maxLen < l: maxLen = l
-      if maxLen >= (totalPoints * 3):
-        # print('Removing:\n', answer, "\ndue to a bad balance of words to points.")
-        answers.remove(answer)
-        continue
-      # 3. if 2-point answer parts differ only by first word, rm
-      if len(parts) == 2:
-        pt0 = parts[0].lower().strip().strip(' and'); pt1 = parts[1].lower().strip()
-        l0 = len(pt0.split()); l1 = len(pt1.split())
-        if l0 > l1: pt0 = ' '.join(pt0.split()[1:])
-        else : pt1 = ' '.join(pt1.split()[1:])
-        if pt1 == pt0:
-          # print('Removing:\n', answer, "\nbecause point parts only differ by first word.")
-          answers.remove(answer)
-
     # collect the best unique answers
     uniqueElems = set()
     for currAns in answers:
@@ -172,15 +187,14 @@ class DataProcessor(ConfigBase):
         decision = compare(uniqueElem, currAns)
         if decision == 0: continue # keep uniqueElem, compare current further
         if decision == 1: # replacement
-          # print(f'Replacing:\n' + uniqueElem + '\nwith:\n' + currAns)
+          if testing: print(f'Replacing:\n' + uniqueElem + '\nwith:\n' + currAns)
           uniqueElems.remove(uniqueElem)
         elif decision == -1: # skip
-          # print(f'Not adding:\n' + currAns + '\nbecause it is close to:\n' + uniqueElem)
+          if testing: print(f'Not adding:\n' + currAns + '\nbecause it is close to:\n' + uniqueElem)
           addFlag = False
         break
       # only add if different from all
       if addFlag: uniqueElems.add(currAns)
-
     return list(uniqueElems)
 
   def makeAE(self):
@@ -204,7 +218,7 @@ class DataProcessor(ConfigBase):
     grouped['count'] = grouped['answer'].apply(lambda x: x.count(sep) + 1)
     grouped.rename(columns={'question': 'count'}, inplace=True)
     # train model to produce 3-12 ans
-    grouped = grouped[(grouped['count'] > 2) & (grouped['count'] < 15)]
+    grouped = grouped[(grouped['count'] > 2)]
     dataset = Dataset.from_pandas(grouped.reset_index(drop=True))
     if not self.quiet: 
       print(grouped.head())
@@ -286,7 +300,7 @@ class DataProcessor(ConfigBase):
     grouped['percentage'] = grouped['count'] / total
     print(grouped)
 
-  def testAEDeduplication(self):
+  def testAEFilter(self):
     ans = input('Enter answer list: ').lstrip('[\'').lstrip('["').rstrip('\']').rstrip('"]')
     # ans = re.split(r"', '|\", '|', \"|\", \"", ans)
     ans = re.split(r"[\"'], [\"']", ans)
@@ -294,7 +308,8 @@ class DataProcessor(ConfigBase):
     ans = [a.strip("'") for a in ans]
     print(f'{len(ans)} answers @ start')
     print('\n'.join(ans) + '\n')
-    ans = dp.aeDeduplicate(ans)
+    ans = dp.aeFilter(ans, testing = True)
+    ans = dp.aeDeduplicate(ans, testing = True)
     print('\n\nUnique Answers:')
     print('\n'.join(ans))
     print(f'{len(ans)} answers left')
@@ -304,7 +319,7 @@ if __name__ == '__main__':
   match sys.argv[1].replace('-', '').lower():
     case 'randomverse': print(dp.getRandomVerse().text)
     case 'makeae': dp.makeAE()
-    case 'testaededuplication': dp.testAEDeduplication()
+    case 'testaefilter': dp.testAEFilter()
     case 'pbecontextualize': dp.pbeContextualize()
     case 'csvtojsonl': dp.csvToJsonl()
     case 'jsonltocsv': dp.jsonlToCsv()

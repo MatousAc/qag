@@ -123,9 +123,10 @@ data['question'] = data['question'].str.replace(r'“|”', r'"', regex=True).st
 # 19. remove surrounding quotes and periods
 data['answer'] = data['answer'].str.replace(r'^"(.+)"$', r'\1', regex=True).str.replace(r"^'(.+)'$", r"\1", regex=True)
 data['question'] = data['question'].str.replace(r'^"(.+)"$', r'\1', regex=True).str.replace(r"^'(.+)'$", r"\1", regex=True)
-# 20 remove anything within parentheses that is not just a point value
-data['answer'] = data['answer'].str.replace(r'\(\d*[a-zA-Z\s\.?!\-\'"]+\d*\)', r'', regex=True)
-data['question'] = data['question'].str.replace(r'\(\d*[a-zA-Z\s\.?!\-\'"]+\d*\)', r'', regex=True)
+# 20 remove anything within parentheses or brackets that is not just a point value
+parenRe = r'[\(\[]\d*[a-zA-Z\s\.?!\-\'"]+\d*[\)\]]'
+data['answer'] = data['answer'].str.replace(parenRe, r'', regex=True)
+data['question'] = data['question'].str.replace(parenRe, r'', regex=True)
 # 21. final trimming and stripping
 data['answer'] = data['answer'].str.strip().str.strip('.')
 data['question'] = data['question'].str.strip()

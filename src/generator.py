@@ -9,12 +9,25 @@ class Generator(ModelHandler):
   adapters. Handles model output post processing. Also handles final
   model evaluation.'''
   def startup(self):
+    self.defineLists()
     self.oldModels = False
     self.timer.mode = 'norm'
     self.pipelineFolders = {
       'AE' : '',
       'QG' : ''
     }
+
+  def defineLists(self):
+    self.diverseList = [
+      'Luke 2:1', 'Ephesians 2:8-9', 'Judges 6:11', 
+      'Genesis 6:1', 'Exodus 14:5', 'Joshua 1:1', '3 John 1:14', 
+      'Judges 6:1', 'Judges 12:8', 'Malachi 4:2', 'Jonah 3:4', 
+      'Jonah 1:13', 'Joshua 18:14', 'Philemon 1:12', 'Ezekiel 12:6', 
+      'Ezekiel 12:1', 'Ezekiel 12:12', 'Galatians 1:1', 
+      'Colossians 1:1', 'Psalm 20:4', 'Proverbs 1:7', 
+      'Proverbs 15:1', 'Micah 5:1', 'Micah 5:2', 'Exodus 26:5', 
+      'Exodus 25:13', 'Genesis 6:13', 'Genesis 6:2'
+    ]
 
   def loadPipeline(self):
     self.bnbConfig = BitsAndBytesConfig(
@@ -57,7 +70,7 @@ class Generator(ModelHandler):
     with torch.no_grad():
       tokens = self.model.generate(**modelInput, max_new_tokens=100)[0]
       output = self.tokenizer.decode(tokens, skip_special_tokens=True)
-      # print(output)
+      print(output)
       self.timer.stop() # model work is done @ this point
       # only return what was generated
       response = output.split(self.cp['dataFormatter'][f'respKey{pipelineType}'])[1]
@@ -81,7 +94,9 @@ class Generator(ModelHandler):
     answers = self.infer(aeInput, 'AE').split('<sep>')[:-1]
     answers = [a.strip() for a in answers] # clean whitespace
     print(answers)
+    answers = self.dp.aeFilter(answers)
     answers = self.dp.aeDeduplicate(answers)
+    print(answers)
     # QG
     self.timer.model = self.pipelineFolders['QG']
     for answer in answers:
@@ -89,7 +104,8 @@ class Generator(ModelHandler):
       context = verse.questionContext
       qgInput = qgInput.replace('<context>', context)
       qgInput = qgInput.replace('<answer>', answer)
-      qgInput = qgInput.replace('<question>', '')
+      ref = f'According to {verse.ref},'
+      qgInput = qgInput.replace('<question>', ref)
       qgInput = qgInput.strip()
       question = self.infer(qgInput, 'QG')
       question = question.split('?')[0] # only the first question is relevant
@@ -105,21 +121,17 @@ class Generator(ModelHandler):
         print(f'Answer: ', qaPair['answer'])
     return qa
 
-  def generationLoop(self):
+  def generationLoop(self, refList = None):
     print('Ctrl+C to exit')
+    def gen(ref = None):
+      verse = self.requestVerse(ref)
+      print(verse.text)
+      qa = self.generateQA(verse)
     try:
-      # while True:
-      for ref in ['Luke 2:1', 'Ephesians 2:8-9', 'Judges 6:11', 
-      'Genesis 6:1', 'Exodus 14:5', 'Joshua 1:1', '3 John 1:14', 
-      'Judges 6:1', 'Judges 12:8', 'Malachi 4:2', 'Jonah 3:4', 
-      'Jonah 1:13', 'Joshua 18:14', 'Philemon 1:12', 'Ezekiel 12:6', 
-      'Ezekiel 12:1', 'Ezekiel 12:12', 'Galatians 1:1', 
-      'Colossians 1:1', 'Psalm 20:4', 'Proverbs 1:7', 
-      'Proverbs 15:1', 'Micah 5:1', 'Micah 5:2', 'Exodus 26:5', 
-      'Exodus 25:13', 'Genesis 6:13', 'Genesis 6:2']:
-        verse = self.requestVerse(ref)
-        print(verse.text)
-        qa = self.generateQA(verse)
+      if refList:
+        for ref in refList: gen(ref)
+      else:
+        while True: gen()
     except KeyboardInterrupt: print(f'\rClosing{" " * 20}\n')
     except: raise
 
@@ -145,4 +157,8 @@ if __name__ == '__main__':
     case 'oldmodels': generator.oldModels = True
     case 'latest' | _: generator.oldModels = False
   generator.loadPipeline()
-  generator.generationLoop()
+  if len(sys.argv) > 2:
+    match sys.argv[2].replace('-', ''):
+      case 'diverseList': refList = generator.diverseList
+  else: refList = None
+  generator.generationLoop(refList)
