@@ -1,5 +1,5 @@
 # import libraries we need
-import torch, sys, os
+import torch, sys, os, pandas as pd, re
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer
 from modelHandler import ModelHandler
 from verse import Verse
@@ -11,6 +11,7 @@ class Generator(ModelHandler):
   def startup(self):
     self.defineLists()
     self.oldModels = False
+    self.saveFiles = False
     self.timer.mode = 'norm'
     self.pipelineFolders = {
       'AE' : '',
@@ -70,14 +71,17 @@ class Generator(ModelHandler):
     with torch.no_grad():
       tokens = self.model.generate(**modelInput, max_new_tokens=100)[0]
       output = self.tokenizer.decode(tokens, skip_special_tokens=True)
-      print(output)
+      # print(output)
       self.timer.stop() # model work is done @ this point
       # only return what was generated
       response = output.split(self.cp['dataFormatter'][f'respKey{pipelineType}'])[1]
       return response
 
-  def generateQA(self, verse: Verse):
-    qa = []
+  def generateQA(self, verse: Verse) -> pd.DataFrame:
+    qa = pd.DataFrame(columns=['question', 'answer'])
+    def countPoints(answer: str):
+      numRe = r'\((\d+)\)'
+      return max(len(re.findall(numRe, answer)), 1)
     # AE
     aeInput = self.cp['dataFormatter'][f'respTempleAE']
     aeInput = aeInput.replace('<context>', verse.text)
@@ -87,10 +91,9 @@ class Generator(ModelHandler):
     self.timer.model = self.pipelineFolders['AE']
     answers = self.infer(aeInput, 'AE').split('<sep>')[:-1]
     answers = [a.strip() for a in answers] # clean whitespace
-    print(answers)
     answers = self.dp.aeFilter(answers)
     answers = self.dp.aeDeduplicate(answers)
-    print(answers)
+    if not self.quiet: print(answers)
     # QG
     self.timer.model = self.pipelineFolders['QG']
     for answer in answers:
@@ -98,36 +101,61 @@ class Generator(ModelHandler):
       context = verse.questionContext
       qgInput = qgInput.replace('<context>', context)
       qgInput = qgInput.replace('<answer>', answer)
-      ref = f'According to {verse.ref},'
-      qgInput = qgInput.replace('<question>', ref)
+      qgInput = qgInput.replace('<question>', verse.ref + ',')
       qgInput = qgInput.strip()
       question = self.infer(qgInput, 'QG')
       question = question.split('?')[0] # only the first question is relevant
+      # count points and prepend
+      ptNum = countPoints(answer)
       question = question.strip()
-      question = f'{ref} {question}?'
-      qa.append({
-        'question': question,
-        'answer': answer
-      })
-    if not self.quiet:
-      for qaPair in qa:
-        print(f'Question: ', qaPair['question'])
-        print(f'Answer: ', qaPair['answer'])
+      question = f'({ptNum}pt{"s" if ptNum > 1 else ""}) {question}?'
+      # FIXME czech for cut off quotes here and add them
+      qa.loc[len(qa)] = [question, answer]
+    if not self.quiet: print(qa)
     return qa
 
-  def generationLoop(self, refList = None):
+  def gen(self, ref = None, verse = None):
+        if verse == None: verse = self.requestVerse(ref)
+        if not self.quiet: print(verse.text)
+        return self.generateQA(verse)
+
+  def generationLoop(self):
     print('Ctrl+C to exit')
-    def gen(ref = None):
-      verse = self.requestVerse(ref)
-      print(verse.text)
-      qa = self.generateQA(verse)
     try:
-      if refList:
-        for ref in refList: gen(ref)
+      if self.refList:
+        for ref in self.refList: self.gen(ref)
       else:
-        while True: gen()
+        while True: self.gen()
     except KeyboardInterrupt: print(f'\rClosing{" " * 20}\n')
     except: raise
+
+  def evalGen(self):
+    print('Ctrl+C to exit')
+    qLim = input('Enter file question limit as a number. Enter for no limit: ')
+    numFiles = input('How many files do you want to generate. Enter for 1: ')
+    if qLim == '': qLim = None
+    else: qLim = int(qLim)
+    if numFiles == '': numFiles = 1
+    else: numFiles = int(numFiles)
+    genDest = self.basePath + '/data/gen'
+    
+    for fileNum in range(numFiles):
+      dest = os.path.normpath(f'{genDest}/{fileNum}.csv')
+      file = open(dest, 'w')
+      cols = ['reference', 'additionalContext', 'verse', 'question', 'answer', 'grammaticality', 'acceptability']
+      qa = pd.DataFrame(columns = cols)
+      while len(qa) < qLim:
+        if qLim: self.printProgressBar(len(qa) + (qLim * fileNum), qLim * numFiles, label = 'generating questions')
+        verse = self.dp.getRandomVerse()
+        currQA = self.gen(verse = verse)
+        currQA['reference'] = verse.ref
+        currQA['additionalContext'] = verse.inContext
+        currQA['verse'] = verse.text
+        currQA['grammaticality'] = ''
+        currQA['acceptability'] = ''
+        currQA = currQA[cols]
+        qa = pd.concat([qa, currQA])
+      qa.to_csv(file, index=False)
 
   def requestVerse(self, ref = None) -> Verse:
     # get reference from user
@@ -149,10 +177,17 @@ if __name__ == '__main__':
   else: cmd = sys.argv[1]
   match cmd.replace('-', '').lower():
     case 'oldmodels': generator.oldModels = True
+    case 'genfiles':
+      generator.saveFiles = True
+    case 'genfilesoldmodels':
+      generator.oldModels = True
+      generator.saveFiles = True
     case 'latest' | _: generator.oldModels = False
   generator.loadPipeline()
   if len(sys.argv) > 2:
     match sys.argv[2].replace('-', ''):
-      case 'diverseList': refList = generator.diverseList
-  else: refList = None
-  generator.generationLoop(refList)
+      case 'diverseList': generator.refList = generator.diverseList
+      case 'evalList': generator.refList = generator.diverseList
+  else: generator.refList = None
+  if generator.saveFiles: generator.evalGen()
+  else: generator.generationLoop()

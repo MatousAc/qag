@@ -62,7 +62,7 @@ class DataProcessor(ConfigBase):
       try: verse: Verse = self.constructVerse(book, chapter, start, end)
       except: print(f'Error fetching verse {book} {chapter}:{verse}-{end} -> {row}')
       # assign pieces
-      data.at[i, 'question'] = verse.ref + ', ' + self.smartUnCapitalize(data.at[i, 'question']) # FIXME rm reference if applicable
+      data.at[i, 'question'] = verse.ref + ', ' + self.smartUnCapitalize(data.at[i, 'question'])
       data.at[i, 'sentence'] = verse.text
       data.at[i, 'paragraph'] = verse.inContext
       data.at[i, 'paragraph_question'] = f'question: {row["question"]}, context: {verse.inContext}'
@@ -86,7 +86,7 @@ class DataProcessor(ConfigBase):
     for answer in answers.copy():
       if len(answer.split()) > 25:
         answers.remove(answer)
-        print('Removing:\n', answer, "\nbecause it is over 25 words.")
+        if testing: print('Removing:\n', answer, "\nbecause it is over 25 words.")
 
     # 2. remove multi-point answers with more than twice
     # as many words in any answer as there are total points
@@ -121,7 +121,7 @@ class DataProcessor(ConfigBase):
       for part in parts:
         l = len(part.split())
         if maxLen < l: maxLen = l
-      if maxLen >= (totalPoints * 3):
+      if maxLen > (totalPoints + 5): # slightly scale with point values
         if testing: print('Removing:\n', answer, "\ndue to a bad balance of words to points.")
         answers.remove(answer)
         continue

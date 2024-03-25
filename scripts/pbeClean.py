@@ -80,12 +80,13 @@ def formatAnswers(answer: str, allegedPoints: int):
   answer = re.sub(numRe, processAnswer, answer)
   pointCount = countPoints(answer)
   
+  # not all answers come nicely formatted to match the regex above
   if (pointCount == 1):
     parts = answer.split(';') # semicolons
     # only split on commas if multiple points reported
     if (len(parts) == 1) and (allegedPoints > 1):
       parts = answer.split(',')
-    if len(parts) > 1:
+    if len(parts) > 1: # we know that the anwer parts are separated by commas
       res = []
       currentNumber = 1
       for part in parts:
@@ -106,17 +107,18 @@ data['bigPoints'] = data['points'] > 3
 capsRe = r'\b([A-Z]{2,})\b'
 data['question'] = data['question'].str.replace(capsRe, lambda match: match.groups()[0].lower(), regex=True)
 data['answer'] = data['answer'].str.replace(capsRe, lambda match: match.groups()[0].lower(), regex=True)
-# 13. remove Be Specific, any caps, w/ or without parentheses, periods && various misspellingsc
-data['question'] = data['question'].str.replace(r'\s*\(?be\sspe((cific)|(ific)|(cfic)|(cifc))\.?\)?\.?\s*', r'', flags = re.IGNORECASE, regex=True)
-# 14. transform "v #" to "verse #"
+# 13. remove Be Specific, any caps, w/ or without parentheses, periods && various misspellings
+beRe = r'\s*\(?be\sspe((cific)|(ific)|(cfic)|(cifc))\.?\)?\.?\s*'
+data['question'] = data['question'].str.replace(beRe, r'', flags = re.IGNORECASE, regex=True)
+# 14. transform "v #" to "verse #" FIXME this could probably be removed now
 data['question'] = data['question'].str.replace(r'v\s(\d+)', lambda match: f'verse {match.groups()[0]}', regex=True)
-# 15. remove any rows with a point-value greater than 13
-data = data[data['points'] < 13]
+# 15. remove any rows with a point-value greater than 10
+data = data[data['points'] <= 10]
 # 16. put back apostrophes that somehow got lost
 data['question'] = data['question'].str.replace('�', "'")
 data['answer'] = data['answer'].str.replace('�', "'")
 # 17. remove all occurences of "Do not confuse with verse #" and 'Note:' in question and answer columns
-dncRe = r'\(?(?:do not confuse)|(?:note:?).*\)?\.?'
+dncRe = r'(?:\(?(?:(?:do not confuse)|(?:don\'t mix up)|(?:note:?)).*\)?)|\((?:different).*\)\.?'
 data['question'] = data['question'].str.replace(dncRe, r'', regex=True, flags=re.IGNORECASE)
 data['answer'] = data['answer'].str.replace(dncRe, r'', regex=True, flags=re.IGNORECASE)
 # 18. replace special/double characters
@@ -129,9 +131,9 @@ data['question'] = data['question'].str.replace(r'^"(.+)"$', r'\1', regex=True).
 parenRe = r'[\(\[]\d*[a-zA-Z\s\.?!\-\'"]+\d*[\)\]]'
 data['answer'] = data['answer'].str.replace(parenRe, r'', regex=True)
 data['question'] = data['question'].str.replace(parenRe, r'', regex=True)
-# 21. final trimming and stripping
-data['answer'] = data['answer'].str.strip().str.strip('.')
-data['question'] = data['question'].str.strip()
+# 21. final trimming and stripping. also make sure question marks don't have spaces in front of them
+data['answer'] = data['answer'].str.strip().str.strip('.').str.replace(' ?', '?')
+data['question'] = data['question'].str.strip().str.replace(' ?', '?')
 # 22. replace "None" with "none" so that we can keep these values next time we load them as csv
 data['answer'] = data['answer'].str.replace(r'^None$', r'^none$', regex = True)
 # 23. final deduplication based on reference, question, and answer (we lose about 500 questions here 👍)
