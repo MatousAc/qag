@@ -140,7 +140,7 @@ class Generator(ModelHandler):
     genDest = self.basePath + '/data/gen'
     
     for fileNum in range(numFiles):
-      dest = os.path.normpath(f'{genDest}/{fileNum}.csv')
+      dest = os.path.normpath(f'{genDest}/pbeQA{fileNum}.csv')
       file = open(dest, 'w')
       cols = ['reference', 'additionalContext', 'verse', 'question', 'answer', 'grammaticality', 'acceptability']
       qa = pd.DataFrame(columns = cols)
