@@ -23,8 +23,8 @@ baseModels/
 # data
 SQuAD/
 customData/
-data/
-!nkjv.csv
+data/pbe/
+data/squad*/
 
 # logs
 */wandb/
