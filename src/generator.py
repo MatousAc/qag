@@ -59,7 +59,7 @@ class Generator(ModelHandler):
     checkpointLocation = self.getLatestCheckpointPath(modeFolder + modelFolder)
     self.pipelineFolders[pipelineType] = modelFolder
     if not self.quiet: print(f'Loading {pipelineType} model from {modelFolder}')
-    # load and name adapters for later use individuallly
+    # load and name adapters for later use individually
     # merging adapters results in poor performance
     _ = self.model.load_adapter(checkpointLocation, adapter_name=pipelineType)
 
@@ -72,9 +72,9 @@ class Generator(ModelHandler):
       tokens = self.model.generate(**modelInput, max_new_tokens=100)[0]
       output = self.tokenizer.decode(tokens, skip_special_tokens=True)
       # print(output)
-      self.timer.stop() # model work is done @ this point
+      self.timer.stop() # the model's job is done @ this point
       # only return what was generated
-      response = output.split(self.cp['dataFormatter'][f'respKey{pipelineType}'])[1]
+      response = output.split(self.cp['dataFormatter'][f'respTemple{pipelineType}'])[1]
       return response
 
   def generateQA(self, verse: Verse) -> pd.DataFrame:
@@ -83,7 +83,7 @@ class Generator(ModelHandler):
       numRe = r'\((\d+)\)'
       return max(len(re.findall(numRe, answer)), 1)
     # AE
-    aeInput = self.cp['dataFormatter'][f'respTempleAE']
+    aeInput = self.cp['dataFormatter'][f'inputTempleAE']
     aeInput = aeInput.replace('<context>', verse.text)
     aeInput = aeInput.replace('<answer>', '')
     aeInput = aeInput.strip()
@@ -97,7 +97,7 @@ class Generator(ModelHandler):
     # QG
     self.timer.model = self.pipelineFolders['QG']
     for answer in answers:
-      qgInput = self.cp['dataFormatter'][f'respTempleQG']
+      qgInput = self.cp['dataFormatter'][f'inputTempleQG']
       context = verse.questionContext
       qgInput = qgInput.replace('<context>', context)
       qgInput = qgInput.replace('<answer>', answer)

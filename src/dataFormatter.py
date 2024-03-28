@@ -8,8 +8,8 @@ class DataFormatter(ConfigBase):
   def configure(self):
     self.dfCf = self.cp['dataFormatter']
     self.delim = self.dfCf['delim']
+    self.inputTemple = self.dfCf[f'inputTemple{self.trainFor}']
     self.respTemple = self.dfCf[f'respTemple{self.trainFor}']
-    self.respKey = self.dfCf[f'respKey{self.trainFor}']
     self.qContextType = 'paragraph_sentence' if self.dfCf[f'extraContext'] == 'True' else 'sentence'
     self.load()
     if (self.cp['train']['packing'] == 'True'):
@@ -39,7 +39,7 @@ class DataFormatter(ConfigBase):
 
     if not self.quiet: print(f'''Loaded {len(self.trainDataset)} training and {len(self.evalDataset)} evaluation examples above at or above a quality of {threshold}''')
 
-  def unpackedProcessing(self, examples):
+  def unpackedProcessing(self, examples) -> list:
     '''processes all data for training input'''
     output_texts = []
     # note that at this point, examples is a dictionary of lists. e.g.:
@@ -53,7 +53,7 @@ class DataFormatter(ConfigBase):
     return self.formatInput([self.trainDataset][0], i)
 
   ### formatting f(x)s for input to various training phases
-  def formatInput(self, example, i = 0):
+  def formatInput(self, example, i = 0) -> str:
     '''Formats an example for training'''
     # get column values from lists of strings
     if isinstance(example[self.qContextType], list):
@@ -65,7 +65,7 @@ class DataFormatter(ConfigBase):
       answer = example['answer']
       if self.trainFor == 'QG': question = example['question']
     # construct example
-    templ = self.respTemple
+    templ = self.inputTemple
     templ = templ.replace('<context>', context)
     templ = templ.replace('<answer>', answer)
     if self.trainFor == 'QG': templ = templ.replace('<question>', question)
@@ -77,8 +77,8 @@ class DataFormatter(ConfigBase):
     (desired output). Used in custom NLG metrics.'''
     inputs = []; labels = []
     for row in self.evalDataset:
-      example = self.formatInput(row).split(self.respKey)
-      inputs.append((example[0] + self.respKey).strip())
+      example = self.formatInput(row).split(self.respTemple)
+      inputs.append((example[0] + self.respTemple).strip())
       labels.append(example[1].strip())
     return (inputs, labels)
   
@@ -89,7 +89,7 @@ class DataFormatter(ConfigBase):
     match sampleMode:
       case 'generate':
         input()
-        templ = self.respTemple
+        templ = self.inputTemple
       case 'manual':
         templ = input(f'> ')
         print('↓')

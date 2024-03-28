@@ -157,7 +157,7 @@ class DataProcessor(ConfigBase):
       words2 = set(normAns(text2).split())
       # determine longer text, prefer keeping left (original) side
       longerText = -1 if len(text1.split()) >= len(text2.split()) else 1
-      # if there is no 'and', base legths of of word uniqueness
+      # if there is no 'and', base lengths off of word uniqueness
       len1 = len(words1); len2 = len(words2)
       if 'and' not in words1.union(words2): longerText = -1 if len1 >= len2 else 1
       if words1 == words2: return longerText # if set identical, keep original
@@ -266,10 +266,7 @@ class DataProcessor(ConfigBase):
     v.previous = getVrs(previousNum) if previousNum else ''
     v.following = getVrs(followingNum) if followingNum else ''
     
-    targetVerses = []
-    for verseNumber in range(v.start, v.end + 1):
-      targetVerses.append(getVrs(verseNumber))
-    v.text = ' '.join(targetVerses)
+    v.text = ' '.join([getVrs(n) for n in range(v.start, v.end + 1)])
     v.inContext = f'{v.previous} {v.text} {v.following}'.strip()
     v.wordCount = len(v.text.split())
     v.questionContext = v.inContext if v.wordCount < 15 else v.text

@@ -140,7 +140,7 @@ class Trainer(ModelHandler):
     inputs, labels = self.df.getEvalInputs()
     preds = []
     for inp in inputs: preds.append(self.infer(model, inp))
-    preds = [pred.split(self.df.respKey)[1].strip() for pred in preds]
+    preds = [pred.split(self.df.respTemple)[1].strip() for pred in preds]
     return (preds, labels)
     
   def nlgMetrics(self, evalPred):
@@ -167,7 +167,7 @@ class Trainer(ModelHandler):
     # always load model first
     baseModel = self.loadModel()
     
-    # default source of hyperparams
+    # default source of hyperparameters
     hp = {
       'learningRate': float(self.hyp['learningRate']),
       'r': int(self.hyp['r']),
@@ -181,14 +181,13 @@ class Trainer(ModelHandler):
     collator = None # by passing None, we use the default collator
     if (self.trainConfig['optimizeCompletion'] == 'True'):
       collator = DataCollatorForCompletionOnlyLM(
-        self.df.respKey, tokenizer=self.tokenizer
+        self.df.respTemple, tokenizer=self.tokenizer
       )
     
     def getTrainer(): 
       # use the SFTTrainer from HuggingFace's trl library
       return SFTTrainer(
         model = baseModel,
-        # model_init = self.loadModel,
         train_dataset = self.df.trainDataset,
         eval_dataset = self.df.evalDataset,
         peft_config = self.loraConfig,
@@ -205,7 +204,7 @@ class Trainer(ModelHandler):
     
     if self.sweeping:
       with wandb.init(config=config):
-        # finetuning the best data quality
+        # fine-tuning the best data quality
         hp.update(wandb.config) # override vals from qag.ini
         self.df.load(threshold = hp['quality'], shuffle = True)
         self.configureTraining(hp)
