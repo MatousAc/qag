@@ -49,6 +49,7 @@ class ConfigBase:
                        label: str = 'progress', width: str = None):
     '''Prints a labeled progress bar at stage value/maximum.'''
     if not width: width = self.vw - len(f'{label}{value}/{maximum}') - 12;
+    value = min(value, maximum) # value cannot surpass maximum
     percent = value / maximum
     sys.stdout.write('\r')
     bar = '█' * int(width * percent)

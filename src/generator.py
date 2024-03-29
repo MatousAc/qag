@@ -64,6 +64,7 @@ class Generator(ModelHandler):
     _ = self.model.load_adapter(checkpointLocation, adapter_name=pipelineType)
 
   def infer(self, inferenceInput: str, pipelineType: str):
+    self.timer.model = self.pipelineFolders[pipelineType]
     self.timer.start()
     self.model.set_adapter(pipelineType)
     modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
@@ -83,30 +84,22 @@ class Generator(ModelHandler):
       numRe = r'\((\d+)\)'
       return max(len(re.findall(numRe, answer)), 1)
     # AE
-    aeInput = self.cp['dataFormatter'][f'inputTempleAE']
-    aeInput = aeInput.replace('<context>', verse.text)
-    aeInput = aeInput.replace('<answer>', '')
-    aeInput = aeInput.strip()
+    aeInput = self.df.formatInput({'sentence': verse.text, 'answer': ''}, formatFor = 'AE')
     # split answers and ditch the last one
-    self.timer.model = self.pipelineFolders['AE']
     answers = self.infer(aeInput, 'AE').split('<sep>')[:-1]
     answers = [a.strip() for a in answers] # clean whitespace
     answers = self.dp.aeFilter(answers)
     answers = self.dp.aeDeduplicate(answers)
     if not self.quiet: print(answers)
     # QG
-    self.timer.model = self.pipelineFolders['QG']
     for answer in answers:
       qgInput = self.cp['dataFormatter'][f'inputTempleQG']
-      context = verse.questionContext
-      qgInput = qgInput.replace('<context>', context)
-      qgInput = qgInput.replace('<answer>', answer)
-      qgInput = qgInput.replace('<question>', verse.ref + ',')
-      qgInput = qgInput.strip()
+      qgInput = self.df.formatInput({
+        'sentence': verse.questionContext, 'answer': answer, 'question': verse.ref + ','
+      }, formatFor = 'QG')
       question = self.infer(qgInput, 'QG')
       question = question.split('?')[0] # only the first question is relevant
-      # count points and prepend
-      ptNum = countPoints(answer)
+      ptNum = countPoints(answer) # count points and prepend
       question = question.strip()
       question = f'({ptNum}pt{"s" if ptNum > 1 else ""}) {question}?'
       # FIXME czech for cut off quotes here and add them
@@ -137,15 +130,18 @@ class Generator(ModelHandler):
     else: qLim = int(qLim)
     if numFiles == '': numFiles = 1
     else: numFiles = int(numFiles)
-    genDest = self.basePath + '/data/gen'
+    aeStr = self.pipelineFolders['AE'][-5:-1] # get AE##
+    qgStr = self.pipelineFolders['QG'][-5:-1] # get QG##
+    genDest = self.basePath + f"/data/gen/qag{aeStr}{qgStr}"
     
+    if qLim: self.printProgressBar(0, qLim * numFiles, label = 'generating questions')
     for fileNum in range(numFiles):
-      dest = os.path.normpath(f'{genDest}/pbeQA{fileNum}.csv')
-      file = open(dest, 'w')
+      filepath = os.path.normpath(f'{genDest}/pbeQA{fileNum}.csv')
+      os.makedirs(os.path.dirname(filepath), exist_ok=True)
+      file = open(filepath, 'w')
       cols = ['reference', 'additionalContext', 'verse', 'question', 'answer', 'grammaticality', 'acceptability']
       qa = pd.DataFrame(columns = cols)
       while len(qa) < qLim:
-        if qLim: self.printProgressBar(len(qa) + (qLim * fileNum), qLim * numFiles, label = 'generating questions')
         verse = self.dp.getRandomVerse()
         currQA = self.gen(verse = verse)
         currQA['reference'] = verse.ref
@@ -155,6 +151,7 @@ class Generator(ModelHandler):
         currQA['acceptability'] = ''
         currQA = currQA[cols]
         qa = pd.concat([qa, currQA])
+        if qLim: self.printProgressBar(len(qa) + (qLim * fileNum), qLim * numFiles, label = 'generating questions')
       qa.to_csv(file, index=False)
 
   def requestVerse(self, ref = None) -> Verse:
