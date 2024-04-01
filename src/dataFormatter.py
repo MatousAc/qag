@@ -10,7 +10,6 @@ class DataFormatter(ConfigBase):
     self.delim = self.dfCf['delim']
     self.inputTemple = self.dfCf[f'inputTemple{self.trainFor}']
     self.respTemple = self.dfCf[f'respTemple{self.trainFor}']
-    self.qContextType = 'paragraph_sentence' if self.dfCf[f'extraContext'] == 'True' else 'sentence'
     self.load()
     if (self.cp['train']['packing'] == 'True'):
       self.getExamples = self.formatInput
@@ -53,22 +52,23 @@ class DataFormatter(ConfigBase):
     return self.formatInput([self.trainDataset][0], i)
 
   ### formatting f(x)s for input to various training phases
-  def formatInput(self, example, i = 0) -> str:
-    '''Formats an example for training'''
-    # get column values from lists of strings
-    if isinstance(example[self.qContextType], list):
-      context = example[self.qContextType][i]
+  def formatInput(self, example, i = 0,  formatFor: str = None) -> str:
+    '''Formats an example for training or for generation'''
+    if formatFor == None: formatFor = self.trainFor # default
+    if isinstance(example['answer'], list): # for unpacked processing
+      # get column values from lists of strings
+      context = example['sentence'][i]
       answer = example['answer'][i]
-      if self.trainFor == 'QG': question = example['question'][i]
-    else:
-      context = example[self.qContextType]
-      answer = example['answer']
-      if self.trainFor == 'QG': question = example['question']
+      if formatFor == 'QG': question = example['question'][i]
+    else: # for packed processing or generation
+        context = example['sentence']
+        answer = example['answer']
+        if formatFor == 'QG': question = example['question']
     # construct example
-    templ = self.inputTemple
+    templ = self.dfCf[f'inputTemple{formatFor}']
     templ = templ.replace('<context>', context)
     templ = templ.replace('<answer>', answer)
-    if self.trainFor == 'QG': templ = templ.replace('<question>', question)
+    if formatFor == 'QG': templ = templ.replace('<question>', question)
     return templ.strip()
 
   def getEvalInputs(self) -> tuple[list[str], list[str]]:
@@ -98,7 +98,7 @@ class DataFormatter(ConfigBase):
       templ = templ.replace('<answer>', '')
     if self.trainFor == 'QG':
       row = random.randint(0, len(self.evalDataset) - 1)
-      templ = templ.replace('<context>', self.evalDataset[self.qContextType][row])
+      templ = templ.replace('<context>', self.evalDataset['sentence'][row])
       templ = templ.replace('<answer>', self.evalDataset['answer'][row])
       templ = templ.replace('<question>', '')
     return templ.strip()

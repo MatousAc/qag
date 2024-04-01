@@ -25,6 +25,7 @@ SQuAD/
 customData/
 data/pbe/
 data/squad*/
+data/gen/
 
 # logs
 */wandb/
