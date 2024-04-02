@@ -357,6 +357,27 @@ class DataProcessor(ConfigBase):
     if '.csv' in self.destination: dataset.to_csv(self.destination)
     else: dataset.to_json(self.destination)
 
+  def manualEvalStats(self):
+    '''Computes statistics for manual evaluation.
+    Expects folder to CSVs in dataSource config.'''
+    csvFiles = [f.name for f in os.scandir(self.source) if f.is_file and '.csv' in f.name]
+    df = pd.DataFrame()
+    for file in csvFiles:
+      data = pd.read_csv(os.path.normpath(self.source + '/' + file))
+      df = pd.concat([df, data])
+    totalRows = len(df.index)
+    # general averages
+    gram = df.loc[:, 'grammaticality'].mean()
+    accept = df.loc[:, 'acceptability'].mean()
+    print(f'Average grammaticality: {gram}')
+    print(f'Average acceptability: {accept}')
+    # percentage in each ranking for acceptablility
+    df['count'] = 1
+    groupedByRating = df.groupby('acceptability').agg({'count': 'sum'}).reset_index()
+    groupedByRating['percentOfTotal'] = groupedByRating['count'] / totalRows
+    print(groupedByRating[['acceptability', 'percentOfTotal']])
+
+
 if __name__ == '__main__':
   dp = DataProcessor()
   match sys.argv[1].replace('-', '').lower():
@@ -370,4 +391,5 @@ if __name__ == '__main__':
     case 'datareport': dp.dataReport()
     case 'qualityfilter': dp.qualityFilter()
     case 'aggqabycontext': dp.aggQAByContext()
+    case 'manualevalstats': dp.manualEvalStats()
     case 'none' | _: pass
