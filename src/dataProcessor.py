@@ -376,6 +376,12 @@ class DataProcessor(ConfigBase):
     groupedByRating = df.groupby('acceptability').agg({'count': 'sum'}).reset_index()
     groupedByRating['percentOfTotal'] = groupedByRating['count'] / totalRows
     print(groupedByRating[['acceptability', 'percentOfTotal']])
+    # ratings based on contextType
+    groupedByContextType = df.groupby('contextType').agg({
+      'grammaticality': 'mean',
+      'acceptability': 'mean'
+    }).reset_index()
+    print(groupedByContextType)
 
 
 if __name__ == '__main__':
