@@ -1,4 +1,4 @@
-from datasets import load_dataset
+from datasets import load_dataset, Dataset
 from configBase import ConfigBase
 import random
 
@@ -17,18 +17,19 @@ class DataFormatter(ConfigBase):
 
   def load(self, threshold: int = None, shuffle = True):
     '''loads dataset'''
-    if not self.quiet: print('Loading Data . . .')
+    if not self.quiet: self.printHeader('Loading Data')
     dsDict = load_dataset(self.paths['data'])
     # filter by quality
+    if 'eval' in self.paths['data']: return # no need to load here
     if not threshold: threshold = int(self.dfCf['qualityThreshold'])
     dsDict = dsDict.filter(lambda row: float(row['quality']) >= threshold)
     if shuffle: dsDict = dsDict.shuffle(seed=42) # 42. why not?
 
     if len(dsDict) == 1:
-      if not self.quiet: print('Splitting data . . .')
+      if not self.quiet: self.printHeader('Splitting data')
       key = [split for split in dsDict][0]
       evalToTrainRatio = 0.001 if self.mode == 'test' else float(self.dfCf['evalToTrainRatio'])
-      dsDict = dsDict[key].train_test_split(test_size=evalToTrainRatio)
+      dsDict = dsDict[key].train_test_split(test_size = evalToTrainRatio)
     if not self.quiet:
       print('Results:')
       print(dsDict)
@@ -71,12 +72,13 @@ class DataFormatter(ConfigBase):
     if formatFor == 'QG': templ = templ.replace('<question>', question)
     return templ.strip()
 
-  def getEvalInputs(self) -> tuple[list[str], list[str]]:
+  def getEvalInputs(self, evalDataset: Dataset = None) -> tuple[list[str], list[str]]:
     '''Processes the evaluation dataset into a prompt for
     the model using the current training format and a label
     (desired output). Used in custom NLG metrics.'''
+    if evalDataset == None: evalDataset = self.evalDataset
     inputs = []; labels = []
-    for row in self.evalDataset:
+    for row in evalDataset:
       example = self.formatInput(row).split(self.respTemple)
       inputs.append((example[0] + self.respTemple).strip())
       labels.append(example[1].strip())

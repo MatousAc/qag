@@ -45,12 +45,19 @@ cats = ['2To3', 'bigPoints', 'people', 'places', 'names', 'numbers']
 for cat in cats:
   lsb[cat] = lsb['categories'].str.contains(cat.lower()) == True
   bab[cat] = False # Babienco has no categories
-# 7. extract reference "according to..." && capitalize question
+# 7. extract reference "according to..."
 refRe = r'\s*According to (?P<book>(?:\d\s)?[a-zA-Z]+)\s(?P<chapter>\d+):(?P<verse>\d+)(?:[-,]?[ ]?(?P<endVerse>\d+))?,?\s*'
 newCols = lsb['refQuestion'].str.extract(refRe, flags=re.IGNORECASE)
 lsb['question'] = lsb['refQuestion'].str.replace(refRe, '', flags=re.IGNORECASE, regex=True)
-# lsb['question'] = lsb['question'].str.slice(stop=1).str.capitalize() + lsb['question'].str.slice(start=1)
+commonWords = open('../src/commonWords.txt').read().split()
+def smartUnCapitalize(str):
+  if str.split()[0].lower() in commonWords:
+    str = str[0].lower() + str[1:]
+  return str
 lsb = pd.concat([lsb, newCols], axis=1)
+# uncapitalize questions
+bab['question'] = bab['question'].apply(smartUnCapitalize)
+lsb['question'] = lsb['question'].apply(smartUnCapitalize)
 # 8. combine datasets
 cols = ['book', 'chapter', 'verse', 'endVerse', 'question', 'answer', 'points', 'source', 'quality']
 cols += cats

@@ -1,4 +1,4 @@
-import os
+import os, evaluate
 from configBase import ConfigBase
 from dataFormatter import DataFormatter
 from dataProcessor import DataProcessor
@@ -38,6 +38,22 @@ class ModelHandler(ConfigBase):
     if len(subfolders) == 0: return False
     subfolderNumbers = [int(f.replace(prefix, '')) for f in subfolders]
     return os.path.normpath(f'{modelDir}/{prefix}{max(subfolderNumbers)}')
+
+  def calculateMTMetrics(self, preds: list[str], labels: list[str]) -> dict:
+    rouge = evaluate.load('rouge')
+    bleu = evaluate.load('bleu')
+    meteor = evaluate.load('meteor')
+    # takes: predictions (list of str): translations to score.
+    #        references (list of list of str|list of str): references for each translation.
+    result = {
+      'rogueL': rouge.compute(predictions=preds, references=labels, 
+                use_stemmer=True, use_aggregator=True, rouge_types=['rougeL'])['rougeL'],
+      'bleu': bleu.compute(predictions=preds, references=labels)['bleu'],
+      'meteor': meteor.compute(predictions=preds, references=labels)['meteor']
+    }
+    result = {key: value * 100 for key, value in result.items()}
+    result = {k: round(v, 4) for k, v in result.items()} # round for 4 decimal places
+    return result
 
 if __name__ == '__main__':
   ModelHandler()

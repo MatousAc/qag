@@ -47,38 +47,43 @@ class DataProcessor(ConfigBase):
       str = str[0].lower() + str[1:]
     return str
 
-  def pbeContextualize(self):
-    '''Adds the actual verse texts to data'''
-    data = pd.read_csv(self.source)
-    data['sentence'] = ''; data['paragraph'] = ''; data['paragraph_question'] = ''; data['paragraph_sentence'] = ''
-    if not self.quiet: print(f'dataset length: {len(data.index)}')
-
-    maximum = len(data.index)
-    for i, row in data.iterrows():
+  def contextualizationLoop(self, df):
+    maximum = len(df.index)
+    for i, row in df.iterrows():
       # show progress
-      self.printProgressBar(i, maximum = maximum, label = 'context')
+      self.printProgressBar(i, maximum = maximum, label = 'contextualizing')
       # get verse pieces
       book = row['book']; chapter = row['chapter']; start = row['verse']; end = row['endVerse']
       try: verse: Verse = self.constructVerse(book, chapter, start, end)
+      except KeyboardInterrupt: print(f'\rClosing{" " * 20}\n')
       except: print(f'Error fetching verse {book} {chapter}:{verse}-{end} -> {row}')
       # assign pieces
-      data.at[i, 'question'] = verse.ref + ', ' + self.smartUnCapitalize(data.at[i, 'question'])
-      data.at[i, 'sentence'] = verse.text
-      data.at[i, 'paragraph'] = verse.inContext
-      data.at[i, 'paragraph_question'] = f'question: {row["question"]}, context: {verse.inContext}'
-      data.at[i, 'paragraph_sentence'] = f'{verse.previous}<hl> {verse.text} <hl>{verse.following}'
-    self.printProgressBar(maximum, maximum = maximum, label = 'context') # done
+      df.at[i, 'question'] = verse.ref + ', ' + df.at[i, 'question']
+      df.at[i, 'sentence'] = verse.text
+      df.at[i, 'paragraph'] = verse.inContext
+      df.at[i, 'paragraph_question'] = f'question: {row["question"]}, context: {verse.inContext}'
+      df.at[i, 'paragraph_sentence'] = f'{verse.previous}<hl> {verse.text} <hl>{verse.following}'
+    self.printProgressBar(maximum, maximum = maximum, label = 'contextualizing') # done
+    # drop rows that we can't get references for
+    df = df.dropna(subset=['paragraph_question', 'sentence', 'paragraph', 'paragraph_sentence'])
     print('\n')
+    return df
+
+  def pbeContextualize(self):
+    '''Adds the actual verse texts to data'''
+    df = pd.read_csv(self.source)
+    df['sentence'] = ''; df['paragraph'] = ''; df['paragraph_question'] = ''; df['paragraph_sentence'] = ''
+    if not self.quiet: print(f'dataset length: {len(df.index)}')
+    df = self.contextualizationLoop(df)
+
     # reorganize columns
     cols = ['answer', 'paragraph_question', 'question', 'sentence', 'paragraph', 'paragraph_sentence', 'points', 'source', 'quality']
-    data = data[cols]
-    if not self.quiet: print(data.head())
-    # drop rows that we can't get references for
-    data = data.dropna(subset=['paragraph_question', 'sentence', 'paragraph', 'paragraph_sentence'])
+    df = df[cols]
+    if not self.quiet: print(df.head())
     # drop rows that have sentences w/ more than 150 words
-    data = data[data["sentence"].apply(lambda x: len(x.split()) <= 150)]
+    df = df[df["sentence"].apply(lambda x: len(x.split()) <= 150)]
     # save
-    data.to_csv(self.destination, index=False)
+    df.to_csv(self.destination, index=False)
 
   def aeFilter(self, answers, testing = False):
     '''Filters out badly generated answers'''
@@ -208,7 +213,7 @@ class DataProcessor(ConfigBase):
     '''Aggregates verses and deduplicates
     answers to get AE data'''
     # load json of csv
-    if ".csv" not in self.source:
+    if '.csv' not in self.source:
       dataset = load_dataset(self.source)
       df = dataset['train'].to_pandas()
     else: df = pd.read_csv(self.source)
@@ -232,7 +237,21 @@ class DataProcessor(ConfigBase):
       print(len(dataset))
       print(f'Mean Q&A per context: {round(grouped["count"].mean(), 2)}')
     dataset.to_json(self.destination)
+  
+  def aggQAByContext(self):
+    if '.csv' in self.source: df = pd.read_csv(self.source)
+    else: df = load_dataset(self.source)['train'].to_pandas()
+    df = self.contextualizationLoop(df)
+    df['qa'] = 'Question: According to ' + df['question'] + '\nAnswer: ' + df['answer']
+    df['count'] = 1
+    grouped = df.groupby(['book', 'chapter', 'verse', 'endVerse']).agg({
+      'qa': lambda x: '\n'.join(x),
+      'count': 'sum'
+    }).reset_index()
     
+    dataset = Dataset.from_pandas(grouped)
+    dataset.to_json(self.destination)
+
   def csvToJsonl(self):
     '''Converts CSV to JSONL'''
     pd.read_csv(self.source).to_json(self.destination, orient='records', lines = True)
@@ -318,6 +337,26 @@ class DataProcessor(ConfigBase):
     print('\n'.join(ans))
     print(f'{len(ans)} answers left')
   
+  def qualityFilter(self):
+    '''Processes a Dataset so that the quality 
+    falls between two values. Saves to dest.'''
+    dataset = load_dataset(
+      'csv' if '.csv' in self.source else 'json',
+      data_files = self.source
+    )['train']
+    print(dataset)
+    print('Quality bounds are inclusive.')
+    lowQ = input('Enter lower quality bound (enter for none): ')
+    if lowQ == '': lowQ = 0
+    else: lowQ = int(lowQ)
+    highQ = input('Enter upper quality bound (enter for none): ')
+    if highQ == '': highQ = 10
+    else: highQ = int(highQ)
+    # filter
+    dataset = dataset.filter(lambda row: lowQ <= float(row['quality']) <= highQ)
+    if '.csv' in self.destination: dataset.to_csv(self.destination)
+    else: dataset.to_json(self.destination)
+
 if __name__ == '__main__':
   dp = DataProcessor()
   match sys.argv[1].replace('-', '').lower():
@@ -329,4 +368,6 @@ if __name__ == '__main__':
     case 'jsonltocsv': dp.jsonlToCsv()
     case 'modelexectimes': dp.modelExecTimes()
     case 'datareport': dp.dataReport()
+    case 'qualityfilter': dp.qualityFilter()
+    case 'aggqabycontext': dp.aggQAByContext()
     case 'none' | _: pass

@@ -1,0 +1,15 @@
+Dataset QA count: 1
+Number of rows: 550
+{'rogueL': 22.8311, 'bleu': 9.2592, 'meteor': 55.8408}
+Dataset QA count: 2
+Number of rows: 176
+{'rogueL': 27.8388, 'bleu': 12.4603, 'meteor': 65.7468}
+Dataset QA count: 3
+Number of rows: 122
+{'rogueL': 62.069, 'bleu': 41.9026, 'meteor': 74.6956}
+Dataset QA count: 4
+Number of rows: 67
+{'rogueL': 42.8571, 'bleu': 31.4981, 'meteor': 50.7479}
+Dataset QA count: 5+
+Number of rows: 37
+{'rogueL': 56.7164, 'bleu': 35.4582, 'meteor': 66.1296}

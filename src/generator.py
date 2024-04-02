@@ -1,6 +1,7 @@
 # import libraries we need
 import torch, sys, os, pandas as pd, re
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer
+from datasets import load_dataset, Dataset, DatasetDict
 from modelHandler import ModelHandler
 from verse import Verse
 
@@ -11,7 +12,7 @@ class Generator(ModelHandler):
   def startup(self):
     self.defineLists()
     self.oldModels = False
-    self.saveFiles = False
+    self.interactive = False
     self.timer.mode = 'norm'
     self.pipelineFolders = {
       'AE' : '',
@@ -112,7 +113,7 @@ class Generator(ModelHandler):
         if not self.quiet: print(verse.text)
         return self.generateQA(verse)
 
-  def generationLoop(self):
+  def interactiveGen(self):
     print('Ctrl+C to exit')
     try:
       if self.refList:
@@ -122,7 +123,7 @@ class Generator(ModelHandler):
     except KeyboardInterrupt: print(f'\rClosing{" " * 20}\n')
     except: raise
 
-  def evalGen(self):
+  def fileGen(self):
     print('Ctrl+C to exit')
     qLim = input('Enter file question limit as a number. Enter for no limit: ')
     numFiles = input('How many files do you want to generate. Enter for 1: ')
@@ -168,23 +169,44 @@ class Generator(ModelHandler):
     else: # grab random verse
       return self.dp.getRandomVerse()
 
+  def autoEval(self):
+    data = load_dataset(self.paths['data'])['train']
+    def rowToVerse(row: dict):
+      return self.dp.constructVerse(row['book'], row['chapter'], row['verse'], row['endVerse'])
+    # split on counts
+    dsDict = DatasetDict()
+    for i in range(1,5):
+      dsDict[str(i)] = data.filter(lambda row: row['count'] == i)
+    dsDict['5+'] = data.filter(lambda row: row['count'] >= 5)
+
+    logFile = open(os.path.normpath(self.basePath + '/data/logs/autoEval.txt'), 'w')
+    for name, dataset in dsDict.items():
+      verses = [rowToVerse(row) for row in dataset]
+      labels = dataset['qa']
+      preds = []
+      for i, v in enumerate(verses):
+        df = self.generateQA(v)
+        df['qa'] = 'Question: ' + df['question'] + '\nAnswer: ' + df['answer']
+        preds.append(df['qa'].str.cat(sep = '\n'))
+        self.printProgressBar(i, len(verses), label = f'gen predicitons for {name}')
+      self.printProgressBar(len(verses), len(verses), label = f'gen predicitons for {name}')
+      metrics = self.calculateMTMetrics(preds = preds, labels = labels)
+      logFile.write(f'Dataset QA count: {name}\nNumber of rows: {dataset.num_rows}\n')
+      logFile.write(str(metrics) + '\n')
+      logFile.flush() # force write as we go along so we log progress
+
 if __name__ == '__main__':
   generator = Generator()
-  if len(sys.argv) == 1: cmd = '-latest'
-  else: cmd = sys.argv[1]
-  match cmd.replace('-', '').lower():
-    case 'oldmodels': generator.oldModels = True
-    case 'genfiles':
-      generator.saveFiles = True
-    case 'genfilesoldmodels':
-      generator.oldModels = True
-      generator.saveFiles = True
-    case 'latest' | _: generator.oldModels = False
+  args = [arg.lower().replace('-', '') for arg in sys.argv]
+  
+  if 'oldmodels' in args: generator.oldModels = True
+  else: generator.oldModels = False
   generator.loadPipeline()
-  if len(sys.argv) > 2:
-    match sys.argv[2].replace('-', ''):
-      case 'diverseList': generator.refList = generator.diverseList
-      case 'evalList': generator.refList = generator.diverseList
+  # optional pre-determined source
+  if 'diverselist' in args: generator.refList = generator.diverseList
+  elif 'evallist' in args: generator.refList = generator.diverseList
   else: generator.refList = None
-  if generator.saveFiles: generator.evalGen()
-  else: generator.generationLoop()
+  
+  if 'interactive' in args: generator.interactiveGen()
+  elif 'autoeval' in args: generator.autoEval()
+  else: generator.fileGen()

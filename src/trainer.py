@@ -1,5 +1,5 @@
 # import libraries we need
-import os, sys, torch, evaluate, wandb, yaml, numpy as np, pandas as pd
+import os, sys, torch, wandb, yaml, numpy as np
 from pathlib import Path
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, Seq2SeqTrainingArguments
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
@@ -120,47 +120,25 @@ class Trainer(ModelHandler):
     # see issue: https://github.com/huggingface/transformers/issues/15466
     return logits.argmax(dim = -1)
 
-  def decodeEvalPred(self, evalPred):
-    '''Uses the evalPred object provided by the STFTrainer
-    to return predictions and labels for training evaluation.'''
-    # we receive a tuple of predictions and references.
-    preds, labels = evalPred
-    # decode prediction tokens because custom metrics expect plain text
-    preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
-    decodedPreds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
-    # we ignore the -100 tokens, as those are the prompt
-    labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-    decodedLabels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-    return (decodedPreds, decodedLabels)
-
-  def generateEvalPred(self):
-    '''Uses  the last checkpoint's Peft Models to generate
-    predictions, and uses evaluation data for labels.'''
-    model = self.getLatestCheckpoint(self.outputDir)
-    inputs, labels = self.df.getEvalInputs()
-    preds = []
-    for inp in inputs: preds.append(self.infer(model, inp))
-    preds = [pred.split(self.df.respTemple)[1].strip() for pred in preds]
-    return (preds, labels)
-    
   def nlgMetrics(self, evalPred):
-    '''Computes Bleu, RougeL, and Meteor'''
-    if self.trainConfig['useEvalPred'] == 'True': preds, labels = self.decodeEvalPred(evalPred)
-    else: preds, labels = self.generateEvalPred()
-    rouge = evaluate.load('rouge')
-    bleu = evaluate.load('bleu')
-    meteor = evaluate.load('meteor')
-    # takes: predictions (list of str): translations to score.
-    #        references (list of list of str|list of str): references for each translation.
-    result = {
-      'rogueL': rouge.compute(predictions=preds, references=labels, 
-                use_stemmer=True, use_aggregator=True, rouge_types=['rougeL'])['rougeL'],
-      'bleu': bleu.compute(predictions=preds, references=labels)['bleu'],
-      'meteor': meteor.compute(predictions=preds, references=labels)['meteor']
-    }
-    result = {key: value * 100 for key, value in result.items()}
-    result = {k: round(v, 4) for k, v in result.items()} # round for 4 decimal places
-    return result
+    '''Gets predictions through decoding or evaluation. Uses evaluation
+    data for labels. Then calls the computation of automated metrics.'''
+    if self.trainConfig['useEvalPred'] == 'True': # decode evalPred obj
+      preds, labels = evalPred
+      # decode prediction tokens because custom metrics expect plain text
+      preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
+      preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+      # we ignore the -100 tokens, as those are the prompt
+      labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
+      labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+    else: # generate predictions using latest saved checkpoint
+      model = self.getLatestCheckpoint(self.outputDir)
+      inputs, labels = self.df.getEvalInputs()
+      preds = []
+      for inp in inputs: preds.append(self.infer(model, inp))
+      preds = [pred.split(self.df.respTemple)[1].strip() for pred in preds]
+    return self.calculateMTMetrics(preds = preds, labels = labels)
+
   
   def train(self, config = None):
     '''Sets up and conducts fine-tuning'''
