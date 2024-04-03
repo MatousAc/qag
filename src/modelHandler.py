@@ -46,9 +46,9 @@ class ModelHandler(ConfigBase):
     # takes: predictions (list of str): translations to score.
     #        references (list of list of str|list of str): references for each translation.
     result = {
+      'bleu4': bleu.compute(predictions=preds, references=labels)['precisions'][3], # to get bleu-4
       'rogueL': rouge.compute(predictions=preds, references=labels, 
                 use_stemmer=True, use_aggregator=True, rouge_types=['rougeL'])['rougeL'],
-      'bleu': bleu.compute(predictions=preds, references=labels)['bleu'],
       'meteor': meteor.compute(predictions=preds, references=labels)['meteor']
     }
     result = {key: value * 100 for key, value in result.items()}
