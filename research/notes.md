@@ -28,14 +28,14 @@ The best models so far are emboldened
 * **7b-chatQG10**: Trained with references included. Also including the new Joshua and Judges data. Quality 8. Training ended with a broken pipe error. The QG seems to be the best so far. Although not perfect, it usually generates a coherent and relevant question with enough context. Adding in the reference seems to fix the problem of assuming the wrong information from the Bible from the QG side (though it does not fix the AE part doing the same). Continuing with this method henceforth.
 
 # File Evaluators
-* 0: Gabriella Grundy
-* 1: Ryan Ramirez
+* 0: Gabriella Grundy - 40
+* 1: Ryan Ramirez - 30
 * 2: Daryl Illangovan
-* 3: Lisa Myaing
-* 4: Beth deFlutier
+* 3: Lisa Myaing - 45 min
+* 4: Beth deFlutier - 45 min
 * 5-7: Ki Song
 * 8: Cheryl Craven
-* 9: Michael Babienco
+* 9: Michael Babienco - 30 min
 * 10: Ted Ashton
 * 11: Emily Hamstra
 

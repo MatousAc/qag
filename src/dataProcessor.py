@@ -382,6 +382,7 @@ class DataProcessor(ConfigBase):
       'acceptability': 'mean'
     }).reset_index()
     print(groupedByContextType)
+    print(f"Unique contexts: {df['reference'].nunique()}")
 
 
 if __name__ == '__main__':
