@@ -17,10 +17,11 @@ class DataProcessor(ConfigBase):
     self.commonWords = open(fp).read().split()
 
   def getNkjvInfo(self):
-    '''Creates an object representing the NKJV Bible'''
+    '''Creates an object representing the NKJV Bible. Structure:
+    {Book: {numChapters: #chap, 1:#vs, 2#vs}, Book2:...}'''
     nkjvContent = {}
 
-    with open(self.bibleSrc, 'r', encoding='utf-8') as csvFile:
+    with open(self.bibleSrc, 'r', encoding = 'utf-8') as csvFile:
       reader = csv.reader(csvFile)
       next(reader)  # skip header row
 
@@ -41,6 +42,52 @@ class DataProcessor(ConfigBase):
         nkjvContent[book][chapter] = max(nkjvContent[book][chapter], verse)
 
     return nkjvContent
+
+  def enumerateContext(self, contexts):
+    '''Takes the current generation contexts and
+    enumerates them into all the verse references
+    that need QA generation. Each list of verses
+    indicates a separate output file. Saves results
+    in context member variable.'''
+    vsLists = []
+    extendedVsLists = []
+    # first we get all the verse references individually
+    for text in contexts:
+      verse = Verse(text)
+      def appCh(ch):
+        bkCh = f'{verse.book} {ch}'
+        tempList = []
+        for vs in range(1, self.nkjvInfo[verse.book][ch] + 1):
+          tempList.append(f'{bkCh}:{vs}')
+        vsLists.append(tempList)
+      
+      if verse.start: vsLists.append([verse.ref])
+      elif verse.chapter: appCh(verse.chapter)
+      else:
+        for chapter in range(1, self.nkjvInfo[verse.book]['numChapters'] + 1):
+          appCh(chapter)
+    
+    # next we insert bridge verses
+    numRefs = len([vs for vsList in vsLists for vs in vsList])
+    i = 0
+    for vsList in vsLists: # for every list
+      extendedVsList = [] # make empty inner list of verses
+      vsInSent = 0 # number of verses in current sentence
+      for ref in vsList: # go through each reference
+        i += 1
+        self.printProgressBar(i, numRefs, label = f'enumerating context')
+        vsInSent += 1 # and count verses in current sentence
+        # if the verse ends a sentence
+        verse = self.constructVerse(ref)
+        match = re.match(r'.*[\.!?:;][\'")]*$', verse.text)
+        if match:
+          if vsInSent == 2: # reset the count and add bridge if just 2 vrs
+            extendedVsList.append(f'{verse.book} {verse.chapter}:{verse.start - vsInSent + 1}-{verse.start}')
+          vsInSent = 0
+        # end by adding current (last) verse
+        extendedVsList.append(ref)
+      extendedVsLists.append(extendedVsList) # collect all lists
+    return extendedVsLists
 
   def smartUnCapitalize(self, str):
     if str.split()[0].lower() in self.commonWords:
@@ -399,4 +446,5 @@ if __name__ == '__main__':
     case 'qualityfilter': dp.qualityFilter()
     case 'aggqabycontext': dp.aggQAByContext()
     case 'manualevalstats': dp.manualEvalStats()
+    case 'shownkjvinfo': print(dp.nkjvInfo)
     case 'none' | _: pass

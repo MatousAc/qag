@@ -1,7 +1,7 @@
 # import libraries we need
 import torch, sys, os, pandas as pd, re
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer
-from datasets import load_dataset, Dataset, DatasetDict
+from datasets import load_dataset, DatasetDict
 from modelHandler import ModelHandler
 from verse import Verse
 
@@ -49,6 +49,11 @@ class Generator(ModelHandler):
     # load adapters
     self.loadLora('AE')
     self.loadLora('QG')
+    
+    # setup generation destination
+    aeStr = self.pipelineFolders['AE'][-5:-1] # get AE##
+    qgStr = self.pipelineFolders['QG'][-5:-1] # get QG##
+    self.qaOutputDir = self.basePath + f"/data/gen/qag{aeStr}{qgStr}"
 
   def loadLora(self, pipelineType: str = None):
     if not pipelineType: pipelineType = self.trainFor
@@ -79,7 +84,7 @@ class Generator(ModelHandler):
       response = output.split(self.cp['dataFormatter'][f'respTemple{pipelineType}'])[1]
       return response
 
-  def generateQA(self, verse: Verse) -> pd.DataFrame:
+  def verseToQA(self, verse: Verse) -> pd.DataFrame:
     qa = pd.DataFrame(columns=['question', 'answer'])
     def countPoints(answer: str):
       numRe = r'\((\d+)\)'
@@ -108,22 +113,39 @@ class Generator(ModelHandler):
     if not self.quiet: print(qa)
     return qa
 
-  def gen(self, ref = None, verse = None):
+  def genMux(self, ref = None, verse = None):
         if verse == None: verse = self.requestVerse(ref)
         if not self.quiet: print(verse.text)
-        return self.generateQA(verse)
+        return self.verseToQA(verse)
+
+  def bibleToQAFiles(self):
+    numRefs = len([vs for vsList in self.refList for vs in vsList])
+    i = 0
+    self.printProgressBar(i, numRefs, label = f'QAG')
+    for vsList in self.refList:
+      fileName = vsList[0].split(':')[0] # get filename
+      filepath = os.path.normpath(f'{self.qaOutputDir}/{fileName}.csv')
+      os.makedirs(os.path.dirname(filepath), exist_ok=True)
+      file = open(filepath, 'w')
+      qa = pd.DataFrame(columns = ['question', 'answer'])
+      for ref in vsList:
+        verse = self.dp.constructVerse(ref)
+        qa = pd.concat([qa, self.genMux(verse = verse)])
+        i += 1
+        self.printProgressBar(i, numRefs, label = f'QAG now @ {fileName}')
+      qa.to_csv(file, index=False)
 
   def interactiveGen(self):
     print('Ctrl+C to exit')
     try:
       if self.refList:
-        for ref in self.refList: self.gen(ref)
+        for ref in self.refList: self.genMux(ref)
       else:
-        while True: self.gen()
+        while True: self.genMux()
     except KeyboardInterrupt: print(f'\rClosing{" " * 20}\n')
     except: raise
 
-  def fileGen(self):
+  def evalFileGen(self):
     print('Ctrl+C to exit')
     qLim = input('Enter file question limit as a number. Enter for no limit: ')
     numFiles = input('How many files do you want to generate. Enter for 1: ')
@@ -131,20 +153,17 @@ class Generator(ModelHandler):
     else: qLim = int(qLim)
     if numFiles == '': numFiles = 1
     else: numFiles = int(numFiles)
-    aeStr = self.pipelineFolders['AE'][-5:-1] # get AE##
-    qgStr = self.pipelineFolders['QG'][-5:-1] # get QG##
-    genDest = self.basePath + f"/data/gen/qag{aeStr}{qgStr}"
     
     if qLim: self.printProgressBar(0, qLim * numFiles, label = 'generating questions')
     for fileNum in range(numFiles):
-      filepath = os.path.normpath(f'{genDest}/pbeQA{fileNum}.csv')
+      filepath = os.path.normpath(f'{self.qaOutputDir}/pbeQA{fileNum}.csv')
       os.makedirs(os.path.dirname(filepath), exist_ok=True)
       file = open(filepath, 'w')
       cols = ['reference', 'additionalContext', 'verse', 'question', 'answer', 'grammaticality', 'acceptability']
       qa = pd.DataFrame(columns = cols)
       while len(qa) < qLim:
         verse = self.dp.getRandomVerse()
-        currQA = self.gen(verse = verse)
+        currQA = self.genMux(verse = verse)
         currQA['reference'] = verse.ref
         currQA['additionalContext'] = verse.inContext
         currQA['verse'] = verse.text
@@ -185,7 +204,7 @@ class Generator(ModelHandler):
       labels = dataset['qa']
       preds = []
       for i, v in enumerate(verses):
-        df = self.generateQA(v)
+        df = self.verseToQA(v)
         df['qa'] = 'Question: ' + df['question'] + '\nAnswer: ' + df['answer']
         preds.append(df['qa'].str.cat(sep = '\n'))
         self.printProgressBar(i, len(verses), label = f'gen predicitons for {name}')
@@ -206,7 +225,14 @@ if __name__ == '__main__':
   if 'diverselist' in args: generator.refList = generator.diverseList
   elif 'evallist' in args: generator.refList = generator.diverseList
   else: generator.refList = None
+  if 'fromreference' in args:
+    texts = input("Enter references for qag in a comma-separated list: ")
+    texts = texts.split(', ')
+    generator.refList = generator.dp.enumerateContext(texts)
   
+  # main function execution
   if 'interactive' in args: generator.interactiveGen()
   elif 'autoeval' in args: generator.autoEval()
-  else: generator.fileGen()
+  elif 'manualeval' in args: generator.evalFileGen()
+  elif 'fromreference' in args: generator.bibleToQAFiles()
+  else: generator.interactiveGen()

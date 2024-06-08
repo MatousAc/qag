@@ -18,9 +18,11 @@ class Verse():
   chapter: int
   start: int
   end: int
-  refMatch = r'\s*(?P<book>(?:\d\s)?[a-zA-Z]+)\s(?P<chapter>\d+):(?P<start>\d+)(?:[-,]?[ ]?(?P<end>\d+))?,?\s*'
+  refMatch = r'\s*(?P<book>(?:\d\s)?[a-zA-Z]+)\s?(?P<chapter>\d+)?:?(?P<start>\d+)?(?:[-,]?[ ]?(?P<end>\d+))?,?\s*'
+  # refMatch = r'\s*(?P<book>(?:\d\s)?[a-zA-Z]+)\s(?P<chapter>\d+):(?P<start>\d+)(?:[-,]?[ ]?(?P<end>\d+))?,?\s*'
   
-  def __init__(self, *args): 
+  def __init__(self, *args):
+    '''Constructor accepts arguments in a tuple.'''
     # 1 arg -> ref
     if len(args) == 1 and isinstance(args[0], str):
       self.ref = args[0]
@@ -37,10 +39,12 @@ class Verse():
       self.end = args[3] if len(args) > 3 else self.start
     else: raise ValueError("improper number of arguments sent to Verse constructor")
     # convert strings to ints
-    self.chapter = int(self.chapter)
-    self.start = int(self.start)
-    self.end = int(self.end)
-    if self.end < self.start: raise ValueError('end is less than start')
+    if self.chapter: self.chapter = int(self.chapter)
+    if self.start:
+      self.start = int(self.start)
+      self.end = int(self.end)
+      if self.end < self.start: raise ValueError('end is less than start')
     # format ref uniformly
     endStr = '-' + str(self.end) if self.end != self.start else ''
-    self.ref = f'{self.book} {self.chapter}:{self.start}{endStr}'
+    if (self.book and self.chapter and self.start):
+      self.ref = f'{self.book} {self.chapter}:{self.start}{endStr}'
