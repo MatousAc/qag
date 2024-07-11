@@ -62,6 +62,11 @@ class ConfigBase:
     '''Prints a terminal-wide header with str centered between '~'.'''
     side = '~' * int(0.48 * (self.vw - len(str)))
     print(f'\n{side} {str} {side}')
+  
+  def printReplace(self, str):
+    '''Replaces current terminal line with str.'''
+    l = self.vw - len(str) - 2
+    print('\r' + str + (" " * l) + '\n')
 
 if __name__ == '__main__':
   ConfigBase()

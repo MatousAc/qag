@@ -110,7 +110,7 @@ class Generator(ModelHandler):
       question = f'({ptNum}pt{"s" if ptNum > 1 else ""}) {question}?'
       # FIXME czech for cut off quotes here and add them
       qa.loc[len(qa)] = [question, answer]
-    if not self.quiet: print(qa)
+      if not self.quiet: print(f'Q: {question}\nA: {answer}')
     return qa
 
   def genMux(self, ref = None, verse = None):
@@ -136,13 +136,14 @@ class Generator(ModelHandler):
       qa.to_csv(file, index=False)
 
   def interactiveGen(self):
+    self.quiet = False # override
     print('Ctrl+C to exit')
     try:
       if self.refList:
         for ref in self.refList: self.genMux(ref)
       else:
         while True: self.genMux()
-    except KeyboardInterrupt: print(f'\rClosing{" " * 20}\n')
+    except KeyboardInterrupt: self.printReplace('Closing')
     except: raise
 
   def evalFileGen(self):
@@ -186,7 +187,9 @@ class Generator(ModelHandler):
         return self.requestVerse() # retry
       except: raise
     else: # grab random verse
-      return self.dp.getRandomVerse()
+      verse = self.dp.getRandomVerse()
+      if not self.quiet: self.printReplace(verse.ref)
+      return verse
 
   def autoEval(self):
     data = load_dataset(self.paths['data'])['train']
