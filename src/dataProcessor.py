@@ -95,6 +95,7 @@ class DataProcessor(ConfigBase):
     return str
 
   def contextualizationLoop(self, df):
+    '''Adds the actual verse text columns to Dataframe df'''
     maximum = len(df.index)
     for i, row in df.iterrows():
       # show progress
@@ -102,29 +103,28 @@ class DataProcessor(ConfigBase):
       # get verse pieces
       book = row['book']; chapter = row['chapter']; start = row['verse']; end = row['endVerse']
       try: verse: Verse = self.constructVerse(book, chapter, start, end)
-      except KeyboardInterrupt: print(f'\rClosing{" " * 20}\n')
+      except KeyboardInterrupt: self.printReplace('Closing')
       except: print(f'Error fetching verse {book} {chapter}:{verse}-{end} -> {row}')
       # assign pieces
       df.at[i, 'question'] = verse.ref + ', ' + df.at[i, 'question']
       df.at[i, 'sentence'] = verse.text
       df.at[i, 'paragraph'] = verse.inContext
-      df.at[i, 'paragraph_question'] = f'question: {row["question"]}, context: {verse.inContext}'
       df.at[i, 'paragraph_sentence'] = f'{verse.previous}<hl> {verse.text} <hl>{verse.following}'
     self.printProgressBar(maximum, maximum = maximum, label = 'contextualizing') # done
     # drop rows that we can't get references for
-    df = df.dropna(subset=['paragraph_question', 'sentence', 'paragraph', 'paragraph_sentence'])
+    df = df.dropna(subset=['sentence', 'paragraph', 'paragraph_sentence'])
     print('\n')
     return df
 
   def pbeContextualize(self):
-    '''Adds the actual verse texts to data'''
+    '''Adds verse texts to data. Produces Ushio-like csv for AE=>QG training.'''
     df = pd.read_csv(self.source)
-    df['sentence'] = ''; df['paragraph'] = ''; df['paragraph_question'] = ''; df['paragraph_sentence'] = ''
+    df['sentence'] = ''; df['paragraph'] = ''; df['paragraph_sentence'] = ''
     if not self.quiet: print(f'dataset length: {len(df.index)}')
     df = self.contextualizationLoop(df)
 
     # reorganize columns
-    cols = ['answer', 'paragraph_question', 'question', 'sentence', 'paragraph', 'paragraph_sentence', 'points', 'source', 'quality']
+    cols = ['answer', 'question', 'sentence', 'paragraph', 'paragraph_sentence', 'points', 'source', 'quality']
     df = df[cols]
     if not self.quiet: print(df.head())
     # drop rows that have sentences w/ more than 150 words
@@ -132,7 +132,37 @@ class DataProcessor(ConfigBase):
     # save
     df.to_csv(self.destination, index=False)
 
-  def aeFilter(self, answers, testing = False):
+  def e2eAggregate(self):
+    '''Aggregates Q&A by reference. Deduplicates QA based on answer similarity'''
+    if '.csv' in self.source: df = pd.read_csv(self.source)
+    else: df = load_dataset(self.source)['train'].to_pandas()
+    
+    # df = df[df['quality'] > 7]
+    df['qa'] = 'Q: According to ' + df['question'] + '\nA: ' + df['answer']
+    df['count'] = 1
+    
+    # leverage existing AE deduplication to dedup Q&As
+    def qaDeduplicate(qas):
+      answers = [qa.split('A: ')[1] for qa in qas]
+      dedupAnswers = self.aeDeduplicate(answers)
+      dedupQAs = []
+      for qa in qas:
+        answer = qa.split('A: ')[1]
+        if answer in dedupAnswers:
+          dedupQAs.append(qa)
+          dedupAnswers = list(filter(lambda a: a != answer, dedupAnswers))
+      return dedupQAs
+    
+    grouped = df.groupby(['sentence', 'paragraph']).agg({
+      'qa': lambda x: '\n'.join(qaDeduplicate(x)),
+      'points': 'mean',
+      'quality': 'mean'
+    }).reset_index()
+    
+    dataset = Dataset.from_pandas(grouped)
+    dataset.to_json(self.destination)
+
+  def aeFilter(self, answers, testing = False) -> list:
     '''Filters out badly generated answers'''
     # 1. remove answers longer than 25 words
     for answer in answers.copy():
@@ -272,7 +302,7 @@ class DataProcessor(ConfigBase):
     sep = ' <sep> '
     grouped = df.groupby('sentence').agg({
       'answer': lambda x: sep.join(self.aeDeduplicate(x)),
-      'quality': 'mean'
+      'quality': 'mean' 
     }).reset_index()
     grouped['count'] = grouped['answer'].apply(lambda x: x.count(sep) + 1)
     grouped.rename(columns={'question': 'count'}, inplace=True)
@@ -285,20 +315,6 @@ class DataProcessor(ConfigBase):
       print(f'Mean Q&A per context: {round(grouped["count"].mean(), 2)}')
     dataset.to_json(self.destination)
   
-  def aggQAByContext(self):
-    if '.csv' in self.source: df = pd.read_csv(self.source)
-    else: df = load_dataset(self.source)['train'].to_pandas()
-    df = self.contextualizationLoop(df)
-    df['qa'] = 'Question: According to ' + df['question'] + '\nAnswer: ' + df['answer']
-    df['count'] = 1
-    grouped = df.groupby(['book', 'chapter', 'verse', 'endVerse']).agg({
-      'qa': lambda x: '\n'.join(x),
-      'count': 'sum'
-    }).reset_index()
-    
-    dataset = Dataset.from_pandas(grouped)
-    dataset.to_json(self.destination)
-
   def csvToJsonl(self):
     '''Converts CSV to JSONL'''
     pd.read_csv(self.source).to_json(self.destination, orient='records', lines = True)
@@ -444,7 +460,7 @@ if __name__ == '__main__':
     case 'modelexectimes': dp.modelExecTimes()
     case 'datareport': dp.dataReport()
     case 'qualityfilter': dp.qualityFilter()
-    case 'aggqabycontext': dp.aggQAByContext()
+    case 'e2eaggregate': dp.e2eAggregate()
     case 'manualevalstats': dp.manualEvalStats()
     case 'shownkjvinfo': print(dp.nkjvInfo)
     case 'none' | _: pass

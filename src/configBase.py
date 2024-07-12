@@ -1,5 +1,6 @@
 import os, sys
 from configparser import ConfigParser, ExtendedInterpolation
+from mt import MT
 
 class ConfigBase:
   '''A base class for all classes in src/. Sets up common
@@ -14,12 +15,12 @@ class ConfigBase:
     self.cp.read(os.path.normpath(self.basePath + configFilePath))
     self.genCf = self.cp['general']
     self.mode = self.genCf['mode']
-    self.trainFor = self.genCf["trainFor"]
-    self.modelSize = self.genCf["modelSize"]
+    self.trainFor = MT[self.genCf['trainFor']]
+    self.modelSize = self.genCf['modelSize']
 
     if (self.genCf['ignoreWarnings'] == 'True'): self.warningIgnore()
     self.quiet = self.genCf['quiet'] == 'True'
-    self.modelType = self.genCf["modelType"]
+    self.modelType = self.genCf['modelType']
     # get terminal size for prettified output
     try: self.vw = os.get_terminal_size().columns
     except OSError: self.vw = 100

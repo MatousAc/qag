@@ -1,6 +1,7 @@
+import random
 from datasets import load_dataset, Dataset
 from configBase import ConfigBase
-import random
+from mt import MT
 
 class DataFormatter(ConfigBase):
   '''Handles training and inference data
@@ -60,7 +61,8 @@ class DataFormatter(ConfigBase):
       # get column values from lists of strings
       context = example['sentence'][i]
       answer = example['answer'][i]
-      if formatFor == 'QG': question = example['question'][i]
+      if formatFor == MT.QG: question = example['question'][i]
+      if formatFor == MT.E2E: question = example['question'][i]
     else: # for packed processing or generation
         context = example['sentence']
         answer = example['answer']

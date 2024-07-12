@@ -1,6 +1,6 @@
 # Environment Setup
 ## Recreate
-This directory includes several complex environments. You should be able to use the various `.yml` files to create new conda environments. You need to [install conda from here](https://docs.anaconda.com/free/miniconda/) first.
+This directory includes several complex environments. You should be able to use the various `.yml` files to create new conda environments. If you don't already use conda, you need to [install conda from here](https://docs.anaconda.com/free/miniconda/).
 ```
 conda create --name <envName> --file <envName>.yml
 ```
