@@ -88,8 +88,8 @@ Performance: decent at times
 \<s> ### Write a question for the context and answer. ### Verse: \<context> ### Answer: \<answer> ### Question: According to \<question>
 
 ### E2E
-#### Performance: unknown
-\<s> ### Write extractive questions and answers based on the following verse. ### Verse: \<context> ### Q\&A:
+#### Performance: unknown ***<- current prompt***
+\<s> ### Write extractive questions and answers based on the following verse. ### Verse: \<context> ### Q\&A: \<qa>
 
 #### Performance: mid
 \<s> ### Return several extractive question and answer pairs based on the following context. Each pair should consist of only the question and the correct answer. The questions should not be abstract or subjective. The answers should not be multiple choice. Only return words that are in the context provided. ### Verse: \<context> ### Question answer pairs:

@@ -10,6 +10,7 @@ class DataProcessor(ConfigBase):
     self.source = self.paths['dpSource']
     self.destination = self.paths['dpDest']
     self.bibleSrc = self.basePath + '/data/bible/nkjv.csv'
+    self.sep = ' <sep> '
     
     self.nkjv = pd.read_csv(self.bibleSrc)
     self.nkjvInfo = self.getNkjvInfo()
@@ -106,6 +107,7 @@ class DataProcessor(ConfigBase):
       except KeyboardInterrupt: self.printReplace('Closing')
       except: print(f'Error fetching verse {book} {chapter}:{verse}-{end} -> {row}')
       # assign pieces
+      df.at[i, 'ref'] = verse.ref
       df.at[i, 'question'] = verse.ref + ', ' + df.at[i, 'question']
       df.at[i, 'sentence'] = verse.text
       df.at[i, 'paragraph'] = verse.inContext
@@ -119,12 +121,11 @@ class DataProcessor(ConfigBase):
   def pbeContextualize(self):
     '''Adds verse texts to data. Produces Ushio-like csv for AE=>QG training.'''
     df = pd.read_csv(self.source)
-    df['sentence'] = ''; df['paragraph'] = ''; df['paragraph_sentence'] = ''
     if not self.quiet: print(f'dataset length: {len(df.index)}')
     df = self.contextualizationLoop(df)
 
     # reorganize columns
-    cols = ['answer', 'question', 'sentence', 'paragraph', 'paragraph_sentence', 'points', 'source', 'quality']
+    cols = ['answer', 'question', 'sentence', 'paragraph', 'paragraph_sentence', 'points', 'source', 'quality', 'ref']
     df = df[cols]
     if not self.quiet: print(df.head())
     # drop rows that have sentences w/ more than 150 words
@@ -138,7 +139,7 @@ class DataProcessor(ConfigBase):
     else: df = load_dataset(self.source)['train'].to_pandas()
     
     # df = df[df['quality'] > 7]
-    df['qa'] = 'Q: According to ' + df['question'] + '\nA: ' + df['answer']
+    df['qa'] = 'Q: According to ' + df['question'] + ' A: ' + df['answer']
     df['count'] = 1
     
     # leverage existing AE deduplication to dedup Q&As
@@ -153,8 +154,8 @@ class DataProcessor(ConfigBase):
           dedupAnswers = list(filter(lambda a: a != answer, dedupAnswers))
       return dedupQAs
     
-    grouped = df.groupby(['sentence', 'paragraph']).agg({
-      'qa': lambda x: '\n'.join(qaDeduplicate(x)),
+    grouped = df.groupby(['sentence', 'paragraph', 'ref']).agg({
+      'qa': lambda x: self.sep.join(qaDeduplicate(x)),
       'points': 'mean',
       'quality': 'mean'
     }).reset_index()
@@ -299,9 +300,8 @@ class DataProcessor(ConfigBase):
     df = df[df['quality'] > qualityThreshold]
 
     # group answers by verse and remove near duplicates
-    sep = ' <sep> '
     grouped = df.groupby('sentence').agg({
-      'answer': lambda x: sep.join(self.aeDeduplicate(x)),
+      'answer': lambda x: self.sep.join(self.aeDeduplicate(x)),
       'quality': 'mean' 
     }).reset_index()
     grouped['count'] = grouped['answer'].apply(lambda x: x.count(sep) + 1)

@@ -40,16 +40,21 @@ pip install datasets evaluate huggingface numpy pandas transformers tokenizers t
 It's up to you to figure out how to install cuda toolkit on your machine.
 
 # Training
-To fine-tune a new model set up the proper config (AE vs. QG) and then run [trainer.py](src/trainer.py). The run stats should be available in the pbe_qag team on wandb.ai under the AE or QG project.
+To fine-tune a new model set up the proper config for the model type you are training. There are three types:
+1. AE
+2. QG
+3. E2E
 
-To run AE and the QG traing back-to-back, just start with `trainFor` in [qag.ini](src/qag.ini) as `AE` and run:
+Then run [trainer.py](src/trainer.py). The run stats should be available in the pbe_qag team on wandb.ai. Each model type is it's own "project."
+
+To run AE and QG traing back-to-back, just start with `type` in [qag.ini](src/qag.ini) as `AE` and run:
 ```
 python trainer.py; python trainer.py
 ```
-And then once the first training has started, simply change `trainFor` to `QG`. Save the file. This will run AE training first and, when complete, will run another trainig, but this time QG as that is what [qag.ini](src/qag.ini) specifies.
+And then once the first training has started, simply change `type` to `QG`. Save the file. This will run AE training first and, when complete, will run another trainig, but this time QG as that is what [qag.ini](src/qag.ini) specifies.
 
 # Generating questions and answers
-To run the model just run [generator.py](src/generator.py).
+To run the model, specify whether you want pipeline or end-to-end generation in the ocnfig file, [qag.ini](src/qag.ini). Values of AE or QG will result in pipeline generation. E2E will enable end-to-end generation. Then, just run [generator.py](src/generator.py).
 ```
 python generator.py
 ```

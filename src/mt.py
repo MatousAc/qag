@@ -5,4 +5,5 @@ class MT(Enum):
   a model, and run inference. AE and QG are used side by side.'''
   AE = 'AE'
   QG = 'QG'
+  AEQG = 'AEQG'
   E2E = 'E2E'

@@ -15,12 +15,12 @@ class ConfigBase:
     self.cp.read(os.path.normpath(self.basePath + configFilePath))
     self.genCf = self.cp['general']
     self.mode = self.genCf['mode']
-    self.trainFor = MT[self.genCf['trainFor']]
+    self.type = MT[self.genCf['type']]
     self.modelSize = self.genCf['modelSize']
 
     if (self.genCf['ignoreWarnings'] == 'True'): self.warningIgnore()
     self.quiet = self.genCf['quiet'] == 'True'
-    self.modelType = self.genCf['modelType']
+    self.baseType = self.genCf['baseType']
     # get terminal size for prettified output
     try: self.vw = os.get_terminal_size().columns
     except OSError: self.vw = 100

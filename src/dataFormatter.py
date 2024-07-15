@@ -9,8 +9,8 @@ class DataFormatter(ConfigBase):
   def configure(self):
     self.dfCf = self.cp['dataFormatter']
     self.delim = self.dfCf['delim']
-    self.inputTemple = self.dfCf[f'inputTemple{self.trainFor}']
-    self.respTemple = self.dfCf[f'respTemple{self.trainFor}']
+    self.inputTemple = self.dfCf[f'inputTemple{self.type.value}']
+    self.respTemple = self.dfCf[f'respTemple{self.type.value}']
     self.load()
     if (self.cp['train']['packing'] == 'True'):
       self.getExamples = self.formatInput
@@ -45,7 +45,7 @@ class DataFormatter(ConfigBase):
     output_texts = []
     # note that at this point, examples is a dictionary of lists. e.g.:
     # {'sentence': ['sent1', 'sent2' ...], 'answer': ['ans1', ...], ...}
-    for i in range(len(examples["answer"])):
+    for i in range(len(examples['sentence'])):
       text = self.formatInput(examples, i)
       output_texts.append(text)
     return output_texts
@@ -54,24 +54,26 @@ class DataFormatter(ConfigBase):
     return self.formatInput([self.trainDataset][0], i)
 
   ### formatting f(x)s for input to various training phases
-  def formatInput(self, example, i = 0,  formatFor: str = None) -> str:
+  def formatInput(self, example, i = 0,  formatFor: MT|None = None) -> str:
     '''Formats an example for training or for generation'''
-    if formatFor == None: formatFor = self.trainFor # default
-    if isinstance(example['answer'], list): # for unpacked processing
+    if formatFor == None: formatFor = self.type # default
+    if isinstance(example['sentence'], list): # for unpacked processing
       # get column values from lists of strings
-      context = example['sentence'][i]
-      answer = example['answer'][i]
+      context = f"{example['ref'][i]} - {example['sentence'][i]}"
+      if formatFor != MT.E2E: answer = example['answer'][i]
       if formatFor == MT.QG: question = example['question'][i]
-      if formatFor == MT.E2E: question = example['question'][i]
+      if formatFor == MT.E2E: qa = example['qa'][i]
     else: # for packed processing or generation
-        context = example['sentence']
-        answer = example['answer']
-        if formatFor == 'QG': question = example['question']
+        context = f"{example['ref']} - {example['sentence']}"
+        if formatFor != MT.E2E: answer = example['answer']
+        if formatFor == MT.QG: question = example['question']
+        if formatFor == MT.E2E: qa = example['qa']
     # construct example
-    templ = self.dfCf[f'inputTemple{formatFor}']
+    templ = self.dfCf[f'inputTemple{formatFor.value}']
     templ = templ.replace('<context>', context)
-    templ = templ.replace('<answer>', answer)
-    if formatFor == 'QG': templ = templ.replace('<question>', question)
+    if formatFor != MT.E2E: templ = templ.replace('<answer>', answer)
+    if formatFor == MT.QG: templ = templ.replace('<question>', question)
+    if formatFor == MT.E2E: templ = templ.replace('<qa>', qa)
     return templ.strip()
 
   def getEvalInputs(self, evalDataset: Dataset = None) -> tuple[list[str], list[str]]:
@@ -97,14 +99,18 @@ class DataFormatter(ConfigBase):
       case 'manual':
         templ = input(f'> ')
         print('↓')
-    if self.trainFor == 'AE':
+    if self.type == MT.AE:
       templ = templ.replace('<context>', dp.getRandomVerse().text)
       templ = templ.replace('<answer>', '')
-    if self.trainFor == 'QG':
+    if self.type == MT.QG:
       row = random.randint(0, len(self.evalDataset) - 1)
       templ = templ.replace('<context>', self.evalDataset['sentence'][row])
       templ = templ.replace('<answer>', self.evalDataset['answer'][row])
       templ = templ.replace('<question>', '')
+    if self.type == MT.E2E:
+      verse = dp.getRandomVerse()
+      templ = templ.replace('<context>', f'{verse.ref} - {verse.text}')
+      templ = templ.replace('<qa>', '')
     return templ.strip()
 
 if __name__ == '__main__':

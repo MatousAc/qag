@@ -19,7 +19,7 @@ class Trainer(ModelHandler):
   def configureTraining(self, hp):
     '''Configures training arguments, quantization, and LoRA config.'''
     # configure wandb naming
-    os.environ['WANDB_PROJECT'] = 'sweep' if self.sweeping else self.trainFor
+    os.environ['WANDB_PROJECT'] = 'sweep' if self.sweeping else self.type.value
     os.environ['WANDB_LOG_MODEL'] = 'true'
     testSteps = int(self.trainConfig['testSteps'])
 
@@ -213,7 +213,7 @@ class Trainer(ModelHandler):
     sweepId = wandb.sweep(config, project = config['project'])
     wandb.agent(sweepId, self.train, count = config['iterations'])
 
-  # testing the models
+  # rudinmentary inference used for testing whether training went alright or not
   def infer(self, model: AutoModelForCausalLM, inferenceInput = None):
     '''Infers with the specified model'''
     if not inferenceInput: inferenceInput = self.df.getInferenceInput(self.dp)
@@ -221,7 +221,7 @@ class Trainer(ModelHandler):
     modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
     model.eval()
     with torch.no_grad():
-      tokens = model.generate(**modelInput, max_new_tokens=100)[0]
+      tokens = model.generate(**modelInput, max_new_tokens=256)[0]
       prediction = self.tokenizer.decode(tokens, skip_special_tokens=True)
     self.timer.stop()
     return prediction
@@ -241,7 +241,7 @@ class Trainer(ModelHandler):
       while True:
         print(self.infer(model))
         print('~' * self.vw)
-    except KeyboardInterrupt: print('\rClosing\n')
+    except KeyboardInterrupt: self.printReplace('Closing')
     except: raise # rethrow
 
   def getLatestCheckpoint(self, modelDir):

@@ -3,6 +3,7 @@ from configBase import ConfigBase
 from dataFormatter import DataFormatter
 from dataProcessor import DataProcessor
 from timeLogger import TimeLogger
+from mt import MT
 
 class ModelHandler(ConfigBase):
   '''A base class that sets up common settings and executes
@@ -21,12 +22,12 @@ class ModelHandler(ConfigBase):
     '''Configuration for further derived classes'''
     pass
 
-  def getLatestModelNumber(self, pipelineType: str = None):
-    '''Returns the latest AE/QG model (defaults to self.mode) in
+  def getLatestModelNumber(self, pipelineType: MT|None = None):
+    '''Returns the latest AE/QG/E2E model (defaults to self.type) in
     the models/mode directory if one is present. Else -1'''
-    if not pipelineType: pipelineType = self.trainFor
+    if not pipelineType: pipelineType = self.type
     parent = self.paths['output'][:self.paths['output'].find(self.mode)] + self.mode
-    subfolders = [f.name for f in os.scandir(parent) if f.is_dir() and pipelineType in f.name]
+    subfolders = [f.name for f in os.scandir(parent) if f.is_dir() and pipelineType.value in f.name]
     subfolderNumbers = [int(f[-2:]) for f in subfolders]
     return max(subfolderNumbers) if len(subfolders) else -1
   

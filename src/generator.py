@@ -4,6 +4,7 @@ from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer
 from datasets import load_dataset, DatasetDict
 from modelHandler import ModelHandler
 from verse import Verse
+from mt import MT
 
 class Generator(ModelHandler):
   '''Handles QAG in a pipelined fashion using potentially different
@@ -14,9 +15,10 @@ class Generator(ModelHandler):
     self.oldModels = False
     self.interactive = False
     self.timer.mode = 'norm'
-    self.pipelineFolders = {
+    self.modelFolders = {
       'AE' : '',
-      'QG' : ''
+      'QG' : '',
+      'E2E' : '',
     }
 
   def defineLists(self):
@@ -47,30 +49,34 @@ class Generator(ModelHandler):
     self.tokenizer = AutoTokenizer.from_pretrained(self.paths['base'])
     self.tokenizer.pad_token = self.tokenizer.eos_token
     # load adapters
-    self.loadLora('AE')
-    self.loadLora('QG')
+    if (self.type == MT.AEQG):
+      self.loadLora(MT.AE)
+      self.loadLora(MT.QG)
+    elif (self.type == MT.E2E):
+      self.loadLora(MT.E2E)
+      
     
     # setup generation destination
-    aeStr = self.pipelineFolders['AE'][-5:-1] # get AE##
-    qgStr = self.pipelineFolders['QG'][-5:-1] # get QG##
+    aeStr = self.modelFolders['AE'][-5:-1] # get AE##
+    qgStr = self.modelFolders['QG'][-5:-1] # get QG##
     self.qaOutputDir = self.basePath + f"/data/gen/qag{aeStr}{qgStr}"
 
-  def loadLora(self, pipelineType: str = None):
-    if not pipelineType: pipelineType = self.trainFor
-    if self.oldModels: ending = input(f'{pipelineType} model number: ')
+  def loadLora(self, pipelineType: MT|None = None):
+    if not pipelineType: pipelineType = self.type
+    if self.oldModels: ending = input(f'{pipelineType.value} model number: ')
     else: ending = str(self.getLatestModelNumber(pipelineType))
     ending = ending.zfill(2)
     modeFolder = f'{self.basePath}/models/output/norm/' # mode folder
-    modelFolder = f'{self.modelSize}b-{self.modelType}{pipelineType}{ending}/' # folder
+    modelFolder = f'{self.modelSize}b-{self.baseType}{pipelineType.value}{ending}/' # folder
     checkpointLocation = self.getLatestCheckpointPath(modeFolder + modelFolder)
-    self.pipelineFolders[pipelineType] = modelFolder
+    self.modelFolders[pipelineType] = modelFolder
     if not self.quiet: print(f'Loading {pipelineType} model from {modelFolder}')
     # load and name adapters for later use individually
     # merging adapters results in poor performance
     _ = self.model.load_adapter(checkpointLocation, adapter_name=pipelineType)
 
   def infer(self, inferenceInput: str, pipelineType: str):
-    self.timer.model = self.pipelineFolders[pipelineType]
+    self.timer.model = self.modelFolders[pipelineType]
     self.timer.start()
     self.model.set_adapter(pipelineType)
     modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
