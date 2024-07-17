@@ -5,6 +5,7 @@ from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from peft import LoraConfig, PeftModel
 from modelHandler import ModelHandler
+from mt import MT
 
 class Trainer(ModelHandler):
   '''A class that handles model training, evaluation during training,
@@ -13,7 +14,6 @@ class Trainer(ModelHandler):
   def startup(self):
     self.trainConfig = self.cp['train']
     self.hyp = self.cp['hyperparameters']
-    self.genEval = self.trainConfig['generativeEval'] == 'True'
     self.sweeping = False
 
   def configureTraining(self, hp):
@@ -33,8 +33,6 @@ class Trainer(ModelHandler):
       # general
       # maxSteps is 0 if not testing or sweeping. 0 does not override epoch number
       max_steps = testSteps if self.mode == 'test' else self.maxSteps if self.sweeping else 0,
-      predict_with_generate = self.genEval,
-      greater_is_better = self.genEval,
       # wandb setup
       # SFTTrainer auto reports to wandb if installed. put 'none' below to turn off
       report_to = 'none' if self.sweeping or self.mode == 'test' else 'wandb',
@@ -110,36 +108,6 @@ class Trainer(ModelHandler):
     return model.resize_token_embeddings(len(self.tokenizer))
   
   # train
-  def preprocessLogits(self, logits: torch.Tensor, labels: torch.Tensor) ->   torch.Tensor:
-    '''The model gives us logits and labels as tensors. Labels are shaped as lists of token
-    sequence references (e.g. in torch.Size([8, 146])) there are 8 references of length 146 each).
-    Logits add one dimension to this as instead of the 'token_id' value they include an array 
-    of non-normalized probabilities, the size of our tokenizer vocabulary. Since higher
-    values represent higher probabilities, we just pick the index of the highest value
-    in dim=-1 (last dimension) to get our 'most probable token_id\''''
-    # see issue: https://github.com/huggingface/transformers/issues/15466
-    return logits.argmax(dim = -1)
-
-  def nlgMetrics(self, evalPred):
-    '''Gets predictions through decoding or evaluation. Uses evaluation
-    data for labels. Then calls the computation of automated metrics.'''
-    if self.trainConfig['useEvalPred'] == 'True': # decode evalPred obj
-      preds, labels = evalPred
-      # decode prediction tokens because custom metrics expect plain text
-      preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
-      preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
-      # we ignore the -100 tokens, as those are the prompt
-      labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-      labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-    else: # generate predictions using latest saved checkpoint
-      model = self.getLatestCheckpoint(self.outputDir)
-      inputs, labels = self.df.getEvalInputs()
-      preds = []
-      for inp in inputs: preds.append(self.infer(model, inp))
-      preds = [pred.split(self.df.respTemple)[1].strip() for pred in preds]
-    return self.calculateMTMetrics(preds = preds, labels = labels)
-
-  
   def train(self, config = None):
     '''Sets up and conducts fine-tuning'''
     # always load model first
@@ -153,7 +121,7 @@ class Trainer(ModelHandler):
       'loraDropout': float(self.hyp['loraDropout']),
       'loraLayers': self.hyp['loraLayers'],
       'bias': self.hyp['bias'],
-      'quality': int(self.cp['dataFormatter']['qualityThreshold']),
+      'quality': int(self.cp['data']['qualityThreshold']),
     }
     
     collator = None # by passing None, we use the default collator
@@ -175,8 +143,6 @@ class Trainer(ModelHandler):
         args = self.trainingArgs,
         packing = self.trainConfig['packing'] == 'True',
         data_collator = collator,
-        compute_metrics = self.nlgMetrics if self.genEval else None,
-        preprocess_logits_for_metrics = self.preprocessLogits if self.genEval else None,
         # pass in resume_from_checkpoint=True to resume from a checkpoint
       )
     
@@ -213,56 +179,25 @@ class Trainer(ModelHandler):
     sweepId = wandb.sweep(config, project = config['project'])
     wandb.agent(sweepId, self.train, count = config['iterations'])
 
-  # rudinmentary inference used for testing whether training went alright or not
-  def infer(self, model: AutoModelForCausalLM, inferenceInput = None):
-    '''Infers with the specified model'''
-    if not inferenceInput: inferenceInput = self.df.getInferenceInput(self.dp)
-    self.timer.start()
-    modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
-    model.eval()
-    with torch.no_grad():
-      tokens = model.generate(**modelInput, max_new_tokens=256)[0]
-      prediction = self.tokenizer.decode(tokens, skip_special_tokens=True)
-    self.timer.stop()
-    return prediction
-  
-  def inferenceLoop(self, useBase = False):
-    '''Loops inference with base of fine-tuned models'''
-    model = self.loadModel()
-    self.timer.model = self.paths["base"].split("/")[-1]
-    self.timer.mode = 'base'
-    if not useBase:
-      model = self.getLatestCheckpoint(self.latestModelDir)
-      print(f'Inference using {self.checkpointLocation}')
-      
+  # rudinmentary inference
+  def inferenceLoop(self):
+    '''Loops inference with fine-tuned models'''
+    self.model = self.loadModel()
+    self.loadLora()
     self.printHeader('Testing Loop')
     print('Ctrl+C to exit')
     try:
       while True:
-        print(self.infer(model))
-        print('~' * self.vw)
+        print(self.infer(self.df.getInferenceInput(self.dp), reduce = False))
+        self.printHeader('Example')
     except KeyboardInterrupt: self.printReplace('Closing')
     except: raise # rethrow
-
-  def getLatestCheckpoint(self, modelDir):
-    '''Returns the latest model ready for inference. If no models are
-    present in the modelDir, returns basemodel. Sets up timer.
-    Assumes no change in tokenizer from base model.'''
-    self.checkpointLocation = self.getLatestCheckpointPath(modelDir)
-    baseModel = self.loadModel()
-    if self.checkpointLocation == False: return baseModel
-    model = PeftModel.from_pretrained(baseModel, self.checkpointLocation)
-    model.resize_token_embeddings(len(self.tokenizer))
-    self.timer.model = self.latestModelDir.split("/")[-1]
-    self.timer.mode = self.mode
-    return model
 
 if __name__ == '__main__':
   trainer = Trainer()
   if len(sys.argv) == 1: cmd = '-train'
   else: cmd = sys.argv[1]
   match cmd.replace('-', '').lower():
-    case 'inferbase': trainer.inferenceLoop(useBase = True)
     case 'infer': trainer.inferenceLoop()
     case 'sweep': trainer.sweep()
     case 'train' | _: trainer.train()

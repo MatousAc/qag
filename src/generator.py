@@ -12,14 +12,8 @@ class Generator(ModelHandler):
   model evaluation.'''
   def startup(self):
     self.defineLists()
-    self.oldModels = False
     self.interactive = False
-    self.timer.mode = 'norm'
-    self.modelFolders = {
-      'AE' : '',
-      'QG' : '',
-      'E2E' : '',
-    }
+
 
   def defineLists(self):
     self.diverseList = [
@@ -49,56 +43,29 @@ class Generator(ModelHandler):
     self.tokenizer = AutoTokenizer.from_pretrained(self.paths['base'])
     self.tokenizer.pad_token = self.tokenizer.eos_token
     # load adapters
-    if (self.type == MT.AEQG):
+    if (self.type == MT.AE or self.type == MT.QG):
       self.loadLora(MT.AE)
       self.loadLora(MT.QG)
+      # setup generation destination
+      aeStr = self.modelFolders[MT.AE][-5:-1] # get AE##
+      qgStr = self.modelFolders[MT.QG][-5:-1] # get QG##
+      self.qaOutputDir = self.basePath + f'/data/gen/qag{aeStr}{qgStr}'
     elif (self.type == MT.E2E):
       self.loadLora(MT.E2E)
-      
-    
-    # setup generation destination
-    aeStr = self.modelFolders['AE'][-5:-1] # get AE##
-    qgStr = self.modelFolders['QG'][-5:-1] # get QG##
-    self.qaOutputDir = self.basePath + f"/data/gen/qag{aeStr}{qgStr}"
+      # setup generation destination
+      e2eStr = self.modelFolders[MT.E2E][-5:-1] # get E2E##
+      self.qaOutputDir = self.basePath + f'/data/gen/qag{e2eStr}'
+  
+  def countPoints(self, answer: str):
+    numRe = r'\((\d+)\)'
+    return max(len(re.findall(numRe, answer)), 1)
 
-  def loadLora(self, pipelineType: MT|None = None):
-    if not pipelineType: pipelineType = self.type
-    if self.oldModels: ending = input(f'{pipelineType.value} model number: ')
-    else: ending = str(self.getLatestModelNumber(pipelineType))
-    ending = ending.zfill(2)
-    modeFolder = f'{self.basePath}/models/output/norm/' # mode folder
-    modelFolder = f'{self.modelSize}b-{self.baseType}{pipelineType.value}{ending}/' # folder
-    checkpointLocation = self.getLatestCheckpointPath(modeFolder + modelFolder)
-    self.modelFolders[pipelineType] = modelFolder
-    if not self.quiet: print(f'Loading {pipelineType} model from {modelFolder}')
-    # load and name adapters for later use individually
-    # merging adapters results in poor performance
-    _ = self.model.load_adapter(checkpointLocation, adapter_name=pipelineType)
-
-  def infer(self, inferenceInput: str, pipelineType: str):
-    self.timer.model = self.modelFolders[pipelineType]
-    self.timer.start()
-    self.model.set_adapter(pipelineType)
-    modelInput = self.tokenizer(inferenceInput, return_tensors='pt').to('cuda')
-    self.model.eval()
-    with torch.no_grad():
-      tokens = self.model.generate(**modelInput, max_new_tokens=100)[0]
-      output = self.tokenizer.decode(tokens, skip_special_tokens=True)
-      # print(output)
-      self.timer.stop() # the model's job is done @ this point
-      # only return what was generated
-      response = output.split(self.cp['dataFormatter'][f'respTemple{pipelineType}'])[1]
-      return response
-
-  def verseToQA(self, verse: Verse) -> pd.DataFrame:
+  def pipelineQAG(self, verse: Verse) -> pd.DataFrame:
     qa = pd.DataFrame(columns=['question', 'answer'])
-    def countPoints(answer: str):
-      numRe = r'\((\d+)\)'
-      return max(len(re.findall(numRe, answer)), 1)
     # AE
-    aeInput = self.df.formatInput({'sentence': verse.text, 'answer': ''}, formatFor = 'AE')
+    aeInput = self.df.formatInput({'sentence': verse.text, 'answer': ''}, formatFor = MT.AE)
     # split answers and ditch the last one
-    answers = self.infer(aeInput, 'AE').split('<sep>')[:-1]
+    answers = self.infer(aeInput, MT.AE).split(self.dp.sep)[:-1]
     answers = [a.strip() for a in answers] # clean whitespace
     answers = self.dp.aeFilter(answers)
     answers = self.dp.aeDeduplicate(answers)
@@ -108,10 +75,10 @@ class Generator(ModelHandler):
       qgInput = self.cp['dataFormatter'][f'inputTempleQG']
       qgInput = self.df.formatInput({
         'sentence': verse.questionContext, 'answer': answer, 'question': verse.ref + ','
-      }, formatFor = 'QG')
-      question = self.infer(qgInput, 'QG')
+      }, formatFor = MT.QG)
+      question = self.infer(qgInput, MT.QG)
       question = question.split('?')[0] # only the first question is relevant
-      ptNum = countPoints(answer) # count points and prepend
+      ptNum = self.countPoints(answer) # count points and prepend
       question = question.strip()
       question = f'({ptNum}pt{"s" if ptNum > 1 else ""}) {question}?'
       # FIXME czech for cut off quotes here and add them
@@ -119,10 +86,26 @@ class Generator(ModelHandler):
       if not self.quiet: print(f'Q: {question}\nA: {answer}')
     return qa
 
+  def e2eQAG(self, verse: Verse) -> pd.DataFrame:
+    qa = pd.DataFrame(columns=['question', 'answer'])
+    e2eInput = self.df.formatInput({'sentence': verse.text, 'qa': '', 'ref': verse.ref}, formatFor = MT.E2E)
+    QAs = self.infer(e2eInput, MT.E2E).split(self.dp.sep)[:-1]
+    for QA in QAs:
+      question = QA.split('A:')[0].replace('Q:', '').strip()
+      answer = QA.split('A:')[1].strip()
+      ptNum = self.countPoints(answer) # count points and prepend
+      question = f'({ptNum}pt{"s" if ptNum > 1 else ""}) {question}'
+      qa.loc[len(qa)] = [question, answer]
+      if not self.quiet: print(f'Q: {question}\nA: {answer}')
+    return qa
+
+
   def genMux(self, ref = None, verse = None):
         if verse == None: verse = self.requestVerse(ref)
         if not self.quiet: print(verse.text)
-        return self.verseToQA(verse)
+        if self.type == MT.E2E: return self.e2eQAG(verse)
+        else: return self.pipelineQAG(verse)
+          
 
   def bibleToQAFiles(self):
     numRefs = len([vs for vsList in self.refList for vs in vsList])
@@ -141,7 +124,7 @@ class Generator(ModelHandler):
         self.printProgressBar(i, numRefs, label = f'QAG now @ {fileName}')
       qa.to_csv(file, index=False)
 
-  def interactiveGen(self):
+  def testGen(self):
     self.quiet = False # override
     print('Ctrl+C to exit')
     try:
@@ -184,8 +167,8 @@ class Generator(ModelHandler):
   def requestVerse(self, ref = None) -> Verse:
     # get reference from user
     if not ref: ref = input('Reference: ')
-  
-    print(f'Reference: {ref}')
+    else: print(f'Reference: {ref}')
+
     if ref != '':
       try: return self.dp.constructVerse(ref)
       except IndexError:
@@ -194,7 +177,7 @@ class Generator(ModelHandler):
       except: raise
     else: # grab random verse
       verse = self.dp.getRandomVerse()
-      if not self.quiet: self.printReplace(verse.ref)
+      if not self.quiet: self.printAbove('Reference: ' + verse.ref)
       return verse
 
   def autoEval(self):
@@ -213,7 +196,7 @@ class Generator(ModelHandler):
       labels = dataset['qa']
       preds = []
       for i, v in enumerate(verses):
-        df = self.verseToQA(v)
+        df = self.pipelineQAG(v)
         df['qa'] = 'Question: ' + df['question'] + '\nAnswer: ' + df['answer']
         preds.append(df['qa'].str.cat(sep = '\n'))
         self.printProgressBar(i, len(verses), label = f'gen predicitons for {name}')
@@ -240,8 +223,8 @@ if __name__ == '__main__':
     generator.refList = generator.dp.enumerateContext(texts)
   
   # main function execution
-  if 'interactive' in args: generator.interactiveGen()
+  if 'interactive' in args: generator.testGen()
   elif 'autoeval' in args: generator.autoEval()
   elif 'manualeval' in args: generator.evalFileGen()
   elif 'fromreference' in args: generator.bibleToQAFiles()
-  else: generator.interactiveGen()
+  else: generator.testGen()

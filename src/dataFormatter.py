@@ -1,13 +1,19 @@
-import random
+import os, random
 from datasets import load_dataset, Dataset
+from configparser import ConfigParser, ExtendedInterpolation
 from configBase import ConfigBase
 from mt import MT
 
 class DataFormatter(ConfigBase):
   '''Handles training and inference data
   loading, processing, and formatting.'''
-  def configure(self):
-    self.dfCf = self.cp['dataFormatter']
+  def configure(self, templates = '/src/inputTemplates.ini'):
+    # config 1. get input templates 2. get other settings
+    self.dfCp = ConfigParser(interpolation=ExtendedInterpolation())
+    self.dfCp.read(os.path.normpath(self.basePath + templates))
+    self.dfCf = self.dfCp['templates']
+    # combine settings from two .ini files
+    for entry in self.cp['data']: self.dfCf[entry] = self.cp['data'][entry]
     self.delim = self.dfCf['delim']
     self.inputTemple = self.dfCf[f'inputTemple{self.type.value}']
     self.respTemple = self.dfCf[f'respTemple{self.type.value}']
@@ -27,7 +33,6 @@ class DataFormatter(ConfigBase):
     if shuffle: dsDict = dsDict.shuffle(seed=42) # 42. why not?
 
     if len(dsDict) == 1:
-      if not self.quiet: self.printHeader('Splitting data')
       key = [split for split in dsDict][0]
       evalToTrainRatio = 0.001 if self.mode == 'test' else float(self.dfCf['evalToTrainRatio'])
       dsDict = dsDict[key].train_test_split(test_size = evalToTrainRatio)
@@ -38,7 +43,7 @@ class DataFormatter(ConfigBase):
     self.trainDataset = dsDict['train']
     self.evalDataset = dsDict['test']
 
-    if not self.quiet: print(f'''Loaded {len(self.trainDataset)} training and {len(self.evalDataset)} evaluation examples above at or above a quality of {threshold}''')
+    if not self.quiet: print(f'''Loaded {len(self.trainDataset)} training and {len(self.evalDataset)} evaluation examples >= a quality of {threshold}''')
 
   def unpackedProcessing(self, examples) -> list:
     '''processes all data for training input'''
@@ -56,24 +61,23 @@ class DataFormatter(ConfigBase):
   ### formatting f(x)s for input to various training phases
   def formatInput(self, example, i = 0,  formatFor: MT|None = None) -> str:
     '''Formats an example for training or for generation'''
+    # make access easier below:
+    if isinstance(example['sentence'], list): isList = True
+    else: isList = False
+    def get(col):
+      if isList: return example[col][i] # normal data processing
+      else: return example[col] # for packed processing or generation
     if formatFor == None: formatFor = self.type # default
-    if isinstance(example['sentence'], list): # for unpacked processing
-      # get column values from lists of strings
-      context = f"{example['ref'][i]} - {example['sentence'][i]}"
-      if formatFor != MT.E2E: answer = example['answer'][i]
-      if formatFor == MT.QG: question = example['question'][i]
-      if formatFor == MT.E2E: qa = example['qa'][i]
-    else: # for packed processing or generation
-        context = f"{example['ref']} - {example['sentence']}"
-        if formatFor != MT.E2E: answer = example['answer']
-        if formatFor == MT.QG: question = example['question']
-        if formatFor == MT.E2E: qa = example['qa']
-    # construct example
+    # actually format stuff:
     templ = self.dfCf[f'inputTemple{formatFor.value}']
-    templ = templ.replace('<context>', context)
-    if formatFor != MT.E2E: templ = templ.replace('<answer>', answer)
-    if formatFor == MT.QG: templ = templ.replace('<question>', question)
-    if formatFor == MT.E2E: templ = templ.replace('<qa>', qa)
+    if formatFor != MT.E2E:
+      templ = templ.replace('<answer>', get('answer'))
+      templ = templ.replace('<context>', get('sentence'))
+    if formatFor == MT.QG or formatFor == MT.QA:
+      templ = templ.replace('<question>', get('question'))
+    if formatFor == MT.E2E:
+      templ = templ.replace('<context>', f"{get('ref')} - {get('sentence')}")
+      templ = templ.replace('<qa>', get('qa'))
     return templ.strip()
 
   def getEvalInputs(self, evalDataset: Dataset = None) -> tuple[list[str], list[str]]:

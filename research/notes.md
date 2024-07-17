@@ -27,7 +27,12 @@ The best models so far are emboldened
 * 7b-chatQG09: Messed up training. Disregard.
 * **7b-chatQG10**: Trained with references included. Also including the new Joshua and Judges data. Quality 8. Training ended with a broken pipe error. The QG seems to be the best so far. Although not perfect, it usually generates a coherent and relevant question with enough context. Adding in the reference seems to fix the problem of assuming the wrong information from the Bible from the QG side (though it does not fix the AE part doing the same). Continuing with this method henceforth.
 
-## QAG
+## E2E
+* 7b-chatQA00: Non-specific unoptimized prompt. No custom tokens. - Yet to be trained and tested.
+
+## E2E
+* 7b-chatE2E00: Non-specific unoptimized prompt. No custom tokens. During inference I noticed that I wasn't providing the verse reference in the prompt, so it was guessing. Whether right or not, this wasn't optimal and I retrained with better input.
+* 7b-chatE2E01: Improves upon the above. Generates 2-4 pretty good questions usually. Does much better with multi-point questions than the AE=>QG pipeline. However, it sometimes (10%) chronically repeats itself, yielding 1-2 decent questions. Generally lacks the diversity provided by AE and wastes time producing repeated questions.
 
 
 # File Evaluators

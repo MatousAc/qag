@@ -7,7 +7,7 @@ class TimeLogger(ConfigBase):
   model = ''
 
   def configure(self):
-    self.mode = self.cp['general']['mode']
+    self.mode = self.cp['main']['mode']
     self.logDir = self.paths['log']
     self.logFile = f'{self.logDir}/executionTime.csv'
     self.startTime = None

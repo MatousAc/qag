@@ -13,14 +13,14 @@ class ConfigBase:
     # general config
     self.cp = ConfigParser(interpolation=ExtendedInterpolation())
     self.cp.read(os.path.normpath(self.basePath + configFilePath))
-    self.genCf = self.cp['general']
-    self.mode = self.genCf['mode']
-    self.type = MT[self.genCf['type']]
-    self.modelSize = self.genCf['modelSize']
+    self.mainCF = self.cp['main']
+    self.mode = self.mainCF['mode']
+    self.type = MT[self.mainCF['type']]
+    self.modelSize = self.mainCF['modelSize']
 
-    if (self.genCf['ignoreWarnings'] == 'True'): self.warningIgnore()
-    self.quiet = self.genCf['quiet'] == 'True'
-    self.baseType = self.genCf['baseType']
+    if (self.mainCF['ignoreWarnings'] == 'True'): self.warningIgnore()
+    self.quiet = self.mainCF['quiet'] == 'True'
+    self.baseType = self.mainCF['baseType']
     # get terminal size for prettified output
     try: self.vw = os.get_terminal_size().columns
     except OSError: self.vw = 100
@@ -59,15 +59,21 @@ class ConfigBase:
     sys.stdout.write(f"{label} |{bar:{width}s}| {value}/{maximum} = {int(100 * percent)}% ")
     sys.stdout.flush()
   
-  def printHeader(self, str):
-    '''Prints a terminal-wide header with str centered between '~'.'''
-    side = '~' * int(0.48 * (self.vw - len(str)))
+  def printHeader(self, str = ''):
+    '''Prints a terminal-wide header with str centered between '#'.'''
+    side = '#' * int(0.48 * (self.vw - len(str)))
     print(f'\n{side} {str} {side}')
   
   def printReplace(self, str):
     '''Replaces current terminal line with str.'''
     l = self.vw - len(str) - 2
     print('\r' + str + (" " * l) + '\n')
+    
+  def printAbove(self, str):
+    '''Replaces previous terminal line with str.'''
+    erase = '\x1b[1A\x1b[2K'
+    l = self.vw - len(str) - 2
+    print(erase + str + (" " * l) + '\n')
 
 if __name__ == '__main__':
   ConfigBase()
