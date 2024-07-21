@@ -188,8 +188,8 @@ class Trainer(ModelHandler):
     print('Ctrl+C to exit')
     try:
       while True:
-        print(self.infer(self.df.getInferenceInput(self.dp), reduce = False))
         self.printHeader('Example')
+        print(self.infer(self.df.getInferenceInput(self.dp), reduce = False))
     except KeyboardInterrupt: self.printReplace('Closing')
     except: raise # rethrow
 

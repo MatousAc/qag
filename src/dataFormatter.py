@@ -73,6 +73,9 @@ class DataFormatter(ConfigBase):
     if formatFor != MT.E2E:
       templ = templ.replace('<answer>', get('answer'))
       templ = templ.replace('<context>', get('sentence'))
+    if formatFor == MT.QA:
+      ans = get('answer')
+      templ = templ.replace('<answer>', ans + self.sep + ans)
     if formatFor == MT.QG or formatFor == MT.QA:
       templ = templ.replace('<question>', get('question'))
     if formatFor == MT.E2E:
@@ -111,6 +114,11 @@ class DataFormatter(ConfigBase):
       templ = templ.replace('<context>', self.evalDataset['sentence'][row])
       templ = templ.replace('<answer>', self.evalDataset['answer'][row])
       templ = templ.replace('<question>', '')
+    if self.type == MT.QA:
+      row = random.randint(0, len(self.evalDataset) - 1)
+      templ = templ.replace('<context>', self.evalDataset['sentence'][row])
+      templ = templ.replace('<question>', self.evalDataset['question'][row])
+      templ = templ.replace('<answer>', '')
     if self.type == MT.E2E:
       verse = dp.getRandomVerse()
       templ = templ.replace('<context>', f'{verse.ref} - {verse.text}')

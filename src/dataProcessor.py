@@ -10,7 +10,6 @@ class DataProcessor(ConfigBase):
     self.source = self.paths['dpSource']
     self.destination = self.paths['dpDest']
     self.bibleSrc = self.basePath + '/data/bible/nkjv.csv'
-    self.sep = ' <sep> '
     
     self.nkjv = pd.read_csv(self.bibleSrc)
     self.nkjvInfo = self.getNkjvInfo()

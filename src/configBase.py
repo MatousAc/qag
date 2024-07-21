@@ -17,6 +17,7 @@ class ConfigBase:
     self.mode = self.mainCF['mode']
     self.type = MT[self.mainCF['type']]
     self.modelSize = self.mainCF['modelSize']
+    self.sep = ' <sep> ' # used in a special way
 
     if (self.mainCF['ignoreWarnings'] == 'True'): self.warningIgnore()
     self.quiet = self.mainCF['quiet'] == 'True'

@@ -27,11 +27,7 @@ class ModelHandler(ConfigBase):
     self.timer = TimeLogger()
     self.timer.mode = 'norm'
     
-    self.modelFolders = {
-      MT.AE : '',
-      MT.QG : '',
-      MT.E2E : ''
-    }
+    self.modelFolders = {t: '' for t in MT}
     self.startup()
 
   def startup(self):
