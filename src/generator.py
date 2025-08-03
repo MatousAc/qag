@@ -47,6 +47,7 @@ class Generator(ModelHandler):
       self.loadLora(MT.AE)
       self.loadLora(MT.QG)
       # setup generation destination
+      print(self.modelFolders)
       aeStr = self.modelFolders[MT.AE][-5:-1] # get AE##
       qgStr = self.modelFolders[MT.QG][-5:-1] # get QG##
       self.qaOutputDir = self.basePath + f'/generated/qag{aeStr}{qgStr}'
