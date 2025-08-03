@@ -114,6 +114,7 @@ class Generator(ModelHandler):
     for vsList in self.refList:
       fileName = vsList[0].split(':')[0] # get filename
       filepath = os.path.normpath(f'{self.qaOutputDir}/{fileName}.csv')
+      print(filepath)
       os.makedirs(os.path.dirname(filepath), exist_ok=True)
       file = open(filepath, 'w')
       qa = pd.DataFrame(columns = ['question', 'answer'])
