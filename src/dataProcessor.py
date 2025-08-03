@@ -56,7 +56,7 @@ class DataProcessor(ConfigBase):
         context = contexts[0]
         book, range_part = context.rsplit(' ', 1)
         start, end = map(int, range_part.split('-'))
-        contexts = ', '.join(f'{book} {i}' for i in range(start, end + 1))
+        contexts = [f'{book} {i}' for i in range(start, end + 1)]
     # first we get all the verse references individually
     for text in contexts:
       verse = Verse(text)
