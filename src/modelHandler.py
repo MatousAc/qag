@@ -27,7 +27,7 @@ class ModelHandler(ConfigBase):
     self.timer = TimeLogger()
     self.timer.mode = 'norm'
     
-    self.modelFolders = {t.value: '' for t in MT}
+    self.modelFolders = {t: '' for t in MT}
     self.startup()
 
   def startup(self):
@@ -61,7 +61,7 @@ class ModelHandler(ConfigBase):
     modeFolder = f'{self.basePath}/models/output/norm/' # mode folder
     modelFolder = f'{self.modelSize}b-{self.baseType}{pipelineType.value}{ending}/' # folder
     checkpointLocation = self.getLatestCheckpointPath(modeFolder + modelFolder)
-    self.modelFolders[pipelineType.value] = modelFolder
+    self.modelFolders[pipelineType] = modelFolder
     if not self.quiet: print(f'Loading {pipelineType.value} model from {modelFolder}')
     # load and name adapters for later use individually
     # merging adapters results in poor performance

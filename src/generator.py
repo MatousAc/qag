@@ -47,7 +47,6 @@ class Generator(ModelHandler):
       self.loadLora(MT.AE)
       self.loadLora(MT.QG)
       # setup generation destination
-      print(self.modelFolders)
       aeStr = self.modelFolders[MT.AE][-5:-1] # get AE##
       qgStr = self.modelFolders[MT.QG][-5:-1] # get QG##
       self.qaOutputDir = self.basePath + f'/generated/qag{aeStr}{qgStr}'
@@ -223,7 +222,6 @@ if __name__ == '__main__':
     texts = input("Enter references for qag in a comma-separated list: ")
     texts = texts.split(', ')
     generator.refList = generator.dp.enumerateContext(texts)
-  print(generator.refList)
   
   # main function execution
   if 'interactive' in args: generator.testGen()
