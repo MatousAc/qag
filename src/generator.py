@@ -105,7 +105,7 @@ class Generator(ModelHandler):
         if not self.quiet: print(verse.text)
         if self.type == MT.E2E: return self.e2eQAG(verse)
         else: return self.pipelineQAG(verse)
-          
+
 
   def bibleToQAFiles(self):
     numRefs = len([vs for vsList in self.refList for vs in vsList])
@@ -114,7 +114,6 @@ class Generator(ModelHandler):
     for vsList in self.refList:
       fileName = vsList[0].split(':')[0] # get filename
       filepath = os.path.normpath(f'{self.qaOutputDir}/{fileName}.csv')
-      print(filepath)
       os.makedirs(os.path.dirname(filepath), exist_ok=True)
       file = open(filepath, 'w')
       qa = pd.DataFrame(columns = ['question', 'answer'])
@@ -222,7 +221,7 @@ if __name__ == '__main__':
     texts = input("Enter references for qag in a comma-separated list: ")
     texts = texts.split(', ')
     generator.refList = generator.dp.enumerateContext(texts)
-  
+  print(generator.refList)
   # main function execution
   if 'interactive' in args: generator.testGen()
   elif 'autoeval' in args: generator.autoEval()
