@@ -53,7 +53,8 @@ class DataProcessor(ConfigBase):
     extendedVsLists = []
     # if we have a range of things, we split it up first
     if len(contexts) == 1 and '-' in contexts[0]:
-        book, range_part = contexts.rsplit(' ', 1)
+        context = contexts[0]
+        book, range_part = context.rsplit(' ', 1)
         start, end = map(int, range_part.split('-'))
         contexts = ', '.join(f'{book} {i}' for i in range(start, end + 1))
     # first we get all the verse references individually
