@@ -13,6 +13,7 @@ class ConfigBase:
     # general config
     self.cp = ConfigParser(interpolation=ExtendedInterpolation())
     self.cp.read(os.path.normpath(self.basePath + configFilePath))
+    
     self.mainCF = self.cp['main']
     self.mode = self.mainCF['mode']
     self.type = MT[self.mainCF['type']]

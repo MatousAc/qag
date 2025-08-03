@@ -88,7 +88,7 @@ class ModelHandler(ConfigBase):
       # print(output)
       self.timer.stop() # the model's job is done @ this point
       # only return what was generated
-      if reduce: output = output.split(self.cp['dataFormatter'][f'respTemple{pipelineType.value}'])[1]
+      if reduce: output = output.split(self.df.dfCf[f'respTemple{pipelineType.value}'])[1]
       return output
 
 

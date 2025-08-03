@@ -20,8 +20,8 @@ Here is an explanation of each saved environment:
 Otherwise start a conda environment from scratch with:
 
 ```
-conda create -n aqg
-conda activate aqg
+conda create -n qagHfCuda
+conda activate qagHfCuda
 conda install python=3.11.5
 ```
 
@@ -34,10 +34,14 @@ pip install datasets evaluate fastt5 huggingface kaggle pandas numpy onnx onnxru
 
 For LLaMA 2 training:
 ```
-pip install datasets evaluate huggingface numpy pandas transformers tokenizers torch
+pip install datasets evaluate huggingface numpy pandas transformers tokenizers torch gstop==0.2.3 bitsandbytes accelerate peft
 ```
 
-It's up to you to figure out how to install cuda toolkit on your machine.
+It's up to you to figure out how to install cuda toolkit on your machine. Last time I used:
+```
+conda install cuda -c nvidia
+```
+
 
 # Training
 To fine-tune a new model set up the proper config for the model type you are training. There are three types:

@@ -126,9 +126,9 @@ dependencies:
       - sympy==1.12
       - threadpoolctl==3.2.0
       - tokenizers==0.14.0
-      - torch==2.0.1
-      - torchaudio==2.0.2
-      - torchvision==0.15.2
+      - torch==2.0.1+cu117
+      - torchaudio==2.0.2+cu117
+      - torchvision==0.15.2+cu117
       - tqdm==4.66.1
       - transformers==4.34.0
       - triton==2.0.0
