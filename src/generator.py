@@ -72,7 +72,7 @@ class Generator(ModelHandler):
     if not self.quiet: print(answers)
     # QG
     for answer in answers:
-      qgInput = self.cp['dataFormatter'][f'inputTempleQG']
+      qgInput = self.df.dfCf[f'inputTempleQG']
       qgInput = self.df.formatInput({
         'sentence': verse.questionContext, 'answer': answer, 'question': verse.ref + ','
       }, formatFor = MT.QG)
