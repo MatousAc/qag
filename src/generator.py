@@ -221,6 +221,7 @@ if __name__ == '__main__':
     texts = input("Enter references for qag in a comma-separated list: ")
     texts = texts.split(', ')
     generator.refList = generator.dp.enumerateContext(texts)
+  print(generator.refList)
   
   # main function execution
   if 'interactive' in args: generator.testGen()
