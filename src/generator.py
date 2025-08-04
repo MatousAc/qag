@@ -49,12 +49,12 @@ class Generator(ModelHandler):
       # setup generation destination
       aeStr = self.modelFolders[MT.AE][-5:-1] # get AE##
       qgStr = self.modelFolders[MT.QG][-5:-1] # get QG##
-      self.qaOutputDir = self.basePath + f'/generated/qag{aeStr}{qgStr}'
+      self.qaOutputDir = self.basePath + f'/data/gen/qag{aeStr}{qgStr}'
     elif (self.type == MT.E2E):
       self.loadLora(MT.E2E)
       # setup generation destination
       e2eStr = self.modelFolders[MT.E2E][-5:-1] # get E2E##
-      self.qaOutputDir = self.basePath + f'/generated/qag{e2eStr}'
+      self.qaOutputDir = self.basePath + f'/data/gen/qag{e2eStr}'
   
   def countPoints(self, answer: str):
     numRe = r'\((\d+)\)'
